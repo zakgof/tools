@@ -6,14 +6,14 @@ import java.nio.ByteBuffer;
 
 public class SimpleOutputStream {
 	
-	private OutputStream stream;
+	private final OutputStream stream;
 
 	public SimpleOutputStream(OutputStream stream) {
 		this.stream = stream;
 	}
 
 	public void write(String str) throws IOException {
-		byte[] bytes = str.getBytes();
+		byte[] bytes = str.getBytes("cp1251");
 		write(bytes.length);		
 		this.stream.write(bytes);
 	}

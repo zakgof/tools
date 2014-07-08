@@ -6,8 +6,8 @@ import java.nio.ByteBuffer;
 
 public class SimpleInputStream {
 
-  private InputStream stream;
-  private long position = 0;
+  private final InputStream stream;
+  private final long position = 0;
 
   public SimpleInputStream(InputStream stream) {
     this.stream = stream;
@@ -15,13 +15,13 @@ public class SimpleInputStream {
 
   public String readString() throws IOException {
     Integer length = readInt();
-    if (length == null || length < 0 || length > 1024 * 1024 * 1024)
+    if (length == null || (int)length < 0 || length > 1024 * 1024 * 1024)
       return null;
     byte[] buffer = new byte[length];
     int bytes = read(buffer);
     if (bytes != length)
       throw new IOException("Can't read string");
-    return new String(buffer);
+    return new String(buffer, "cp1251");
   }
 
   public byte[] readBytes() throws IOException {
