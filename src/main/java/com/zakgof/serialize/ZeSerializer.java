@@ -36,7 +36,7 @@ public class ZeSerializer implements ISerializer {
 
   @Override
   public byte[] serialize(Object object) {
-    long start = System.currentTimeMillis();
+    // long start = System.currentTimeMillis();
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
       SimpleOutputStream sos = new SimpleOutputStream(baos);
@@ -45,7 +45,7 @@ public class ZeSerializer implements ISerializer {
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
-      long end = System.currentTimeMillis();
+      // long end = System.currentTimeMillis();
       // Log.w("perf", "serialize " + object.getClass().getSimpleName() + " in " + (end-start));
     }
   }
@@ -53,14 +53,14 @@ public class ZeSerializer implements ISerializer {
   @SuppressWarnings("unchecked")
   @Override
   public <T> T deserialize(InputStream is, Class<T> clazz) {
-    long start = System.currentTimeMillis();
+    // long start = System.currentTimeMillis();
     try {
       SimpleInputStream sis = new SimpleInputStream(is);
       return (T) fieldSerializer.read(sis, clazz);
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
-      long end = System.currentTimeMillis();
+      // long end = System.currentTimeMillis();
       // Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " + (end-start));
     }
   }
