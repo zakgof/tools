@@ -34,6 +34,19 @@ import com.zakgof.tools.io.SimpleStringSerializer;
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
+  private static final String COMPATIBLE_POJOS = "compatible.pojos";
+  private Map<String, ?> parameters;
+
+  public ZeSerializer(Map<String, ?> parameters) {
+    this.parameters = parameters;
+    initSerializers();
+    pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
+  }
+  
+  public ZeSerializer() {   
+    this(new HashMap<>());
+  }
+
   @Override
   public byte[] serialize(Object object) {
     // long start = System.currentTimeMillis();
@@ -88,11 +101,13 @@ public class ZeSerializer implements ISerializer {
     T read(SimpleInputStream sis, Class<? extends T> clazz) throws IOException;
   }
 
-  private static final IFieldSerializer<Object> fieldSerializer = new FieldSerializer();
+  private final IFieldSerializer<Object> fieldSerializer = new FieldSerializer();
+  private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
+  private final IFieldSerializer<Object> pojoSerializer;
 
-  private static final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<Class<?>, ISimpleSerializer<?>>();
+  private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<Class<?>, ISimpleSerializer<?>>();
 
-  static {
+  private void initSerializers() {
     serializers.put(int.class, SimpleIntegerSerializer.INSTANCE);
     serializers.put(long.class, SimpleLongSerializer.INSTANCE);
     serializers.put(float.class, SimpleFloatSerializer.INSTANCE);
@@ -113,8 +128,136 @@ public class ZeSerializer implements ISerializer {
     serializers.put(Set.class, new CollectionSerializer<HashSet>(HashSet.class));
     serializers.put(HashSet.class, new CollectionSerializer<HashSet>(HashSet.class));
   }
+  
+  private class PojoSerializer implements IFieldSerializer<Object> {
 
-  private static class FieldSerializer implements IFieldSerializer<Object> {
+    @Override
+    public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+      try {
+        for (Field field : getAllFields(clazz)) {
+          if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+            field.setAccessible(true);
+            fieldSerializer.write(field.get(object), field.getType(), sos);
+          }
+        }
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+      try {
+
+        Constructor<?> constructor = clazz.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        Object object = constructor.newInstance();
+
+        for (Field field : getAllFields(clazz)) {
+          if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+            field.setAccessible(true);
+            Object value = fieldSerializer.read(sis, field.getType());
+            field.set(object, value);
+          }
+        }
+
+        return object;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+  }
+  
+  private class CompatiblePojoSerializer implements IFieldSerializer<Object> {
+
+    @Override
+    public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+      try {
+        sos.write(getAllFields(clazz).size());
+        for (Field field : getAllFields(clazz)) {
+          if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+            field.setAccessible(true);            
+            sos.write(field.getName());                        
+            fieldSerializer.write(field.get(object), Object.class, sos);                        
+          }
+        }
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+      try {
+
+        Constructor<?> constructor = clazz.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        Object object = constructor.newInstance();
+        
+        Integer fieldCount = sis.readInt();
+        
+        for (int i=0; i<fieldCount; i++) {
+          String name = sis.readString();
+          Object fieldValue = fieldSerializer.read(sis, Object.class);
+          if (!assignFieldValue(clazz, object, name, fieldValue))
+            System.err.println("field" + name + " with value " + fieldValue + " not found in the class " + clazz);
+        }
+
+        return object;
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private boolean assignFieldValue(Class<? extends Object> clazz, Object object, String name, Object fieldValue) throws IllegalAccessException {
+      for (Field field : getAllFields(clazz)) {
+        if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+          if (field.getName().equals(name)) {
+            field.setAccessible(true);
+            if (fieldValue == null || field.getType().isAssignableFrom(fieldValue.getClass()))
+                field.set(object, fieldValue);                            
+            else
+              System.err.println("Field " + field.getName() + " from " + clazz + " cannot be assigned the value " + fieldValue);
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+  }
+
+  private class ArraySerializer implements IFieldSerializer<Object> {
+
+    @Override
+    public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+      Object[] arr = (Object[]) object;
+      sos.write(arr.length);
+      for (int i = 0; i < arr.length; i++) {
+        Object val = arr[i];
+        fieldSerializer.write(val, clazz, sos);
+      }
+    }
+
+    @Override
+    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+      if (sis.readByte() == 0)
+        return null;
+      int length = sis.readInt();
+      if (length < 0)
+        throw new RuntimeException("Invalid array length");
+      Class<?> componentType = clazz.getComponentType();
+      Object[] instance = (Object[]) Array.newInstance(componentType, length);
+      for (int i = 0; i < length; i++) {
+        instance[i] = fieldSerializer.read(sis, componentType);
+      }
+      return instance;
+    }
+
+  }
+
+  private class FieldSerializer implements IFieldSerializer<Object> {
 
     @Override
     public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
@@ -126,9 +269,9 @@ public class ZeSerializer implements ISerializer {
       if (contentSerializer != null)
         contentSerializer.write(sos, object);
       else if (clazz.getComponentType() != null)
-        serializeArray(object, sos, clazz);
+        arraySerializer.write(object, clazz, sos);
       else
-        serializeNonPrimitive(object, sos);
+        pojoSerializer.write(object, clazz, sos);
     }
 
     @SuppressWarnings("unchecked")
@@ -145,9 +288,9 @@ public class ZeSerializer implements ISerializer {
       if (contentSerializer != null)
         return contentSerializer.read(sis);
       else if (realClazz.getComponentType() != null)
-        return deserializeArray(sis, realClazz);
+        return arraySerializer.read(sis, realClazz);
       else
-        return deserializeNonPrimitive(sis, realClazz);
+        return pojoSerializer.read(sis, realClazz);
     }
 
     private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
@@ -162,29 +305,6 @@ public class ZeSerializer implements ISerializer {
         sos.write(val.getClass().getName());
       }
       return true;
-    }
-
-    private void serializeArray(Object object, SimpleOutputStream sos, Class<?> clazz) throws IOException {
-      Object[] arr = (Object[]) object;
-      sos.write(arr.length);
-      for (int i = 0; i < arr.length; i++) {
-        Object val = arr[i];
-        write(val, clazz, sos);
-      }
-    }
-
-    private void serializeNonPrimitive(Object object, SimpleOutputStream sos) throws IOException {
-      try {
-        Class<?> clazz = object.getClass();
-        for (Field field : getAllFields(clazz)) {
-          if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-            field.setAccessible(true);
-            write(field.get(object), field.getType(), sos);
-          }
-        }
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(e);
-      }
     }
 
     private Class<?> readHeader(SimpleInputStream sis, Class<?> clazz) throws IOException {
@@ -202,44 +322,9 @@ public class ZeSerializer implements ISerializer {
       throw new RuntimeException("Invalid hdr");
     }
 
-    private Object deserializeArray(SimpleInputStream sis, Class<?> clazz) throws IOException {
-      if (sis.readByte() == 0)
-        return null;
-      int length = sis.readInt();
-      if (length < 0)
-        throw new RuntimeException("Invalid array length");
-      Class<?> componentType = clazz.getComponentType();
-      Object[] instance = (Object[]) Array.newInstance(componentType, length);
-      for (int i = 0; i < length; i++) {
-        instance[i] = read(sis, componentType);
-      }
-      return instance;
-    }
-
-    private <T> T deserializeNonPrimitive(SimpleInputStream sis, Class<T> clazz) throws IOException {
-      try {
-
-        Constructor<T> constructor = clazz.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        T object = constructor.newInstance();
-
-        for (Field field : getAllFields(clazz)) {
-          if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-            field.setAccessible(true);
-            Object value = read(sis, field.getType());
-            field.set(object, value);
-          }
-        }
-
-        return object;
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    }
-
   }
 
-  private static class HashMapSerializer implements ISimpleSerializer<HashMap<?, ?>> {
+  private class HashMapSerializer implements ISimpleSerializer<HashMap<?, ?>> {
 
     @Override
     public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
@@ -265,7 +350,7 @@ public class ZeSerializer implements ISerializer {
 
   }
   
-  private static class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
+  private class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
     
     private final Class<T> clazz;
 
