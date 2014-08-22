@@ -34,11 +34,11 @@ import com.zakgof.tools.io.SimpleStringSerializer;
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
-  private static final String COMPATIBLE_POJOS = "compatible.pojos";
-  private Map<String, ?> parameters;
+  public static final String COMPATIBLE_POJOS = "compatible.pojos";
+  // private Map<String, ?> parameters;
 
   public ZeSerializer(Map<String, ?> parameters) {
-    this.parameters = parameters;
+    // this.parameters = parameters;
     initSerializers();
     pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
   }
@@ -241,9 +241,7 @@ public class ZeSerializer implements ISerializer {
     }
 
     @Override
-    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
-      if (sis.readByte() == 0)
-        return null;
+    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {      
       int length = sis.readInt();
       if (length < 0)
         throw new RuntimeException("Invalid array length");
