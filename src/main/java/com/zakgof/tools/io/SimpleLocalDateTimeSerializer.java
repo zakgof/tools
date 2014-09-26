@@ -27,7 +27,7 @@ public class SimpleLocalDateTimeSerializer implements ISimpleSerializer<LocalDat
     Integer dayMilli = in.readInt();
     if (epochDay == null || dayMilli == null)
       return null;
-    return LocalDateTime.of(LocalDate.ofEpochDay(epochDay), LocalTime.ofNanoOfDay(1000L * dayMilli));
+    return LocalDateTime.of(LocalDate.ofEpochDay(epochDay), LocalTime.ofNanoOfDay(1000000L * dayMilli));
   }
 
 }
