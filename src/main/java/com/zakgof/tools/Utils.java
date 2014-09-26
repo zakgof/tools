@@ -17,5 +17,11 @@ public class Utils {
     String string = formatter.format(dateTime);
     return string;    
   }
+  
+  public static String shorten(String orig, int limit) {
+    if (orig.length() < limit)
+      return orig;
+    return orig.substring(0, limit-3) + "...";
+  }
 
 }
