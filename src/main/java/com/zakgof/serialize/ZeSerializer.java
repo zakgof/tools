@@ -3,10 +3,13 @@ package com.zakgof.serialize;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,6 +30,8 @@ import com.zakgof.tools.io.SimpleDoubleSerializer;
 import com.zakgof.tools.io.SimpleFloatSerializer;
 import com.zakgof.tools.io.SimpleInputStream;
 import com.zakgof.tools.io.SimpleIntegerSerializer;
+import com.zakgof.tools.io.SimpleLocalDateSerializer;
+import com.zakgof.tools.io.SimpleLocalDateTimeSerializer;
 import com.zakgof.tools.io.SimpleLongSerializer;
 import com.zakgof.tools.io.SimpleOutputStream;
 import com.zakgof.tools.io.SimpleStringSerializer;
@@ -52,8 +57,7 @@ public class ZeSerializer implements ISerializer {
     // long start = System.currentTimeMillis();
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
-      SimpleOutputStream sos = new SimpleOutputStream(baos);
-      fieldSerializer.write(object, object.getClass(), sos);
+      serialize(object, baos);
       return baos.toByteArray();
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -61,6 +65,11 @@ public class ZeSerializer implements ISerializer {
       // long end = System.currentTimeMillis();
       // Log.w("perf", "serialize " + object.getClass().getSimpleName() + " in " + (end-start));
     }
+  }
+
+  public void serialize(Object object, OutputStream os) throws IOException {
+    SimpleOutputStream sos = new SimpleOutputStream(os);
+    fieldSerializer.write(object, object.getClass(), sos);    
   }
 
   @SuppressWarnings("unchecked")
@@ -127,6 +136,8 @@ public class ZeSerializer implements ISerializer {
     serializers.put(List.class, new CollectionSerializer<ArrayList>(ArrayList.class));
     serializers.put(Set.class, new CollectionSerializer<HashSet>(HashSet.class));
     serializers.put(HashSet.class, new CollectionSerializer<HashSet>(HashSet.class));
+    serializers.put(LocalDate.class, SimpleLocalDateSerializer.INSTANCE);
+    serializers.put(LocalDateTime.class, SimpleLocalDateTimeSerializer.INSTANCE);
   }
   
   private class PojoSerializer implements IFieldSerializer<Object> {
@@ -262,14 +273,15 @@ public class ZeSerializer implements ISerializer {
       if (!clazz.isPrimitive())
         if (!writeHeader(object, clazz, sos))
           return;
+      Class<? extends Object> actualClazz = object.getClass();
       @SuppressWarnings("unchecked")
-      ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(object.getClass());
+      ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
       if (contentSerializer != null)
         contentSerializer.write(sos, object);
-      else if (clazz.getComponentType() != null)
-        arraySerializer.write(object, clazz, sos);
+      else if (actualClazz.getComponentType() != null)
+        arraySerializer.write(object, actualClazz, sos);
       else
-        pojoSerializer.write(object, clazz, sos);
+        pojoSerializer.write(object, actualClazz, sos);
     }
 
     @SuppressWarnings("unchecked")
@@ -328,6 +340,9 @@ public class ZeSerializer implements ISerializer {
     public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
       sos.write(object.size());
       for (Entry<?, ?> e : object.entrySet()) {
+        
+        System.err.println("val " + e.getValue());
+        
         fieldSerializer.write(e.getKey(), Object.class, sos);
         fieldSerializer.write(e.getValue(), Object.class, sos);
       }
