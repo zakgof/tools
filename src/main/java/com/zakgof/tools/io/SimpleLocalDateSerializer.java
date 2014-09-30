@@ -13,13 +13,13 @@ public class SimpleLocalDateSerializer implements ISimpleSerializer<LocalDate> {
 
   @Override
   public void write(SimpleOutputStream out, LocalDate val) throws IOException {
-    int epochDay = val.get(ChronoField.EPOCH_DAY);
+    long epochDay = val.getLong(ChronoField.EPOCH_DAY);
     out.write(epochDay);
   }
 
   @Override
   public LocalDate read(SimpleInputStream in) throws IOException {
-    Integer epochDay = in.readInt();
+    Long epochDay = in.readLong();
     if (epochDay == null)
       return null;
     return LocalDate.ofEpochDay(epochDay);
