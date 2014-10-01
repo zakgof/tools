@@ -13,7 +13,7 @@ public class SimpleOutputStream {
 	}
 
 	public void write(String str) throws IOException {
-		byte[] bytes = str.getBytes("cp1251");
+		byte[] bytes = str.getBytes("cp1251"); // TODO
 		write(bytes.length);		
 		this.stream.write(bytes);
 	}

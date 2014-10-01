@@ -21,7 +21,7 @@ public class SimpleInputStream {
     int bytes = read(buffer);
     if (bytes != length)
       throw new IOException("Can't read string");
-    return new String(buffer, "cp1251");
+    return new String(buffer, "cp1251"); // TODO
   }
 
   public byte[] readBytes() throws IOException {

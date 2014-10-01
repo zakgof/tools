@@ -23,5 +23,11 @@ public class Utils {
       return orig;
     return orig.substring(0, limit-3) + "...";
   }
+  
+  public static String fixfloat(float value, int digits) {
+//    if (value == null)
+//      return "?";
+    return String.format(String.format("%%.%df", digits), value);
+  }
 
 }
