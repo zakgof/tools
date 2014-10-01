@@ -247,7 +247,7 @@ public class ZeSerializer implements ISerializer {
       sos.write(arr.length);
       for (int i = 0; i < arr.length; i++) {
         Object val = arr[i];
-        fieldSerializer.write(val, clazz, sos);
+        fieldSerializer.write(val, clazz.getComponentType(), sos);
       }
     }
 
@@ -259,7 +259,8 @@ public class ZeSerializer implements ISerializer {
       Class<?> componentType = clazz.getComponentType();
       Object[] instance = (Object[]) Array.newInstance(componentType, length);
       for (int i = 0; i < length; i++) {
-        instance[i] = fieldSerializer.read(sis, componentType);
+        Object read = fieldSerializer.read(sis, componentType);
+        instance[i] = read;
       }
       return instance;
     }
@@ -340,9 +341,6 @@ public class ZeSerializer implements ISerializer {
     public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
       sos.write(object.size());
       for (Entry<?, ?> e : object.entrySet()) {
-        
-        System.err.println("val " + e.getValue());
-        
         fieldSerializer.write(e.getKey(), Object.class, sos);
         fieldSerializer.write(e.getValue(), Object.class, sos);
       }
