@@ -14,8 +14,8 @@ public class Merger<C extends Comparable<C>> {
       this.stream = stream;
       this.metric = metric;
     }    
-    private IFunction<T, C> metric;
-    private IProvider<T> stream;
+    private final IFunction<T, C> metric;
+    private final IProvider<T> stream;
   }
 
   private class Wrapper<T> implements Comparable<Wrapper<T>> {
@@ -27,8 +27,9 @@ public class Merger<C extends Comparable<C>> {
       this.source = src;
     }
 
+    @Override
     public int compareTo(Wrapper<T> that) {
-      return source.metric.get(object).compareTo(that.source.metric.get(that.object));
+      return -source.metric.get(object).compareTo(that.source.metric.get(that.object));
     }
 
   }
@@ -44,8 +45,8 @@ public class Merger<C extends Comparable<C>> {
     sources.add(new Source<T>(stream, metric)); 
   }
 
-  private PriorityQueue<Wrapper<?>> queue;
-  private List<Source<?>> sources = new ArrayList<>();
+  private final PriorityQueue<Wrapper<?>> queue = new PriorityQueue<>();
+  private final List<Source<?>> sources = new ArrayList<>();
   
   
   public void run() {
@@ -60,7 +61,9 @@ public class Merger<C extends Comparable<C>> {
   }
 
   public Object next() {    
-    Wrapper<?> w = queue.poll();    
+    Wrapper<?> w = queue.poll();
+    if (w == null)
+      return null;
     feedQueue(w.source);            
     return w.object;     
   }
