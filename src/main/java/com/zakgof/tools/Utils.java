@@ -20,7 +20,7 @@ public class Utils {
     return string;    
   }
   
-  private static final String RU_SHORT_WEEKDAYS[] = {"享", "买", "佯", "昨", "向", "厌", "埋"};
+  private static final String RU_SHORT_WEEKDAYS[] = {"袩薪", "袙褌", "小褉", "效褌", "袩褌", "小斜", "袙褋"};
   
   public static String rushortweek(LocalDate date) {
     int d = date.get(ChronoField.DAY_OF_WEEK) - 1;

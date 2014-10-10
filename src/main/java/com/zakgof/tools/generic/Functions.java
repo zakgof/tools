@@ -1,5 +1,7 @@
 package com.zakgof.tools.generic;
 
+import java.util.Comparator;
+
 public class Functions {
 
   public static <T> IFunction<T, T> identity() {
@@ -7,6 +9,15 @@ public class Functions {
       @Override
       public T get(T arg) {
         return arg;
+      }
+    };
+  }
+  
+  public static <T extends Comparable<T>> Comparator<T> comparator() {
+    return new Comparator<T>() {
+      @Override
+      public int compare(T o1, T o2) {
+        return o1.compareTo(o2);
       }
     };
   }
