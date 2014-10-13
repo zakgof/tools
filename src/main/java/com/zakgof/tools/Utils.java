@@ -20,7 +20,7 @@ public class Utils {
     return string;    
   }
   
-  private static final String RU_SHORT_WEEKDAYS[] = {"ĞŸĞ½", "Ğ’Ñ‚", "Ğ¡Ñ€", "Ğ§Ñ‚", "ĞŸÑ‚", "Ğ¡Ğ±", "Ğ’Ñ"};
+  private static final String RU_SHORT_WEEKDAYS[] = {"Ïí", "Âò‚", "Ñğ", "×ò‚", "Ïò‚", "Ñá", "Âñ"};
   
   public static String rushortweek(LocalDate date) {
     int d = date.get(ChronoField.DAY_OF_WEEK) - 1;
