@@ -54,8 +54,8 @@ public class Merger<C extends Comparable<C>> {
       feedQueue(src);    
   }
 
-  private void feedQueue(Source<?> src) {
-    Wrapper<?> w = wrapFromStream(src);
+  private <T> void feedQueue(Source<T> src) {
+    Wrapper<T> w = wrapFromStream(src);
     if (w != null)
       queue.add(w);
   }

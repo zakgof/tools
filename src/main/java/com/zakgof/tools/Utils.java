@@ -20,7 +20,7 @@ public class Utils {
     return string;    
   }
   
-  private static final String RU_SHORT_WEEKDAYS[] = {"œÌ", "¬ÚÇ", "—", "◊ÚÇ", "œÚÇ", "—·", "¬Ò"};
+  private static final String RU_SHORT_WEEKDAYS[] = {"–ü–Ω", "–í—Ç", "–°—Ä", "–ß—Ç", "–ü—Ç", "–°–±", "–í—Å"};
   
   public static String rushortweek(LocalDate date) {
     int d = date.get(ChronoField.DAY_OF_WEEK) - 1;
@@ -43,6 +43,12 @@ public class Utils {
 //    if (value == null)
 //      return "?";
     return String.format(String.format("%%.%df", digits), value);
+  }
+  
+  public static String weight(float value) {
+    if (Math.abs(value - Math.floor(value)) < 0.01)
+      return String.format("%.0f", Math.floor(value));
+    return String.format("%.1f", value);    
   }
 
 }
