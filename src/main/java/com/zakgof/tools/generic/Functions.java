@@ -22,6 +22,33 @@ public class Functions {
     };
   }
   
+  public static <T extends Comparable<T>> Comparator<T> reverseComparator() {
+    return new Comparator<T>() {
+      @Override
+      public int compare(T o1, T o2) {
+        return -o1.compareTo(o2);
+      }
+    };
+  }
+  
+  public static <T, K extends Comparable<K>> Comparator<T> comparator(IFunction<T, K> getter) {
+    return new Comparator<T>() {
+      @Override
+      public int compare(T o1, T o2) {
+        return getter.get(o1).compareTo(getter.get(o2));
+      }
+    };
+  }
+  
+  public static <T, K extends Comparable<K>> Comparator<T> reverseComparator(IFunction<T, K> getter) {
+    return new Comparator<T>() {
+      @Override
+      public int compare(T o1, T o2) {
+        return -getter.get(o1).compareTo(getter.get(o2));
+      }
+    };
+  }
+  
   public static <T> IProvider<T> firstNext(IProvider<T> first, IFunction<T, T> next) {
     return new IProvider<T>() {
       

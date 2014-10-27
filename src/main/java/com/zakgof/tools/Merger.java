@@ -1,13 +1,22 @@
 package com.zakgof.tools;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 
 import com.zakgof.tools.generic.IFunction;
 import com.zakgof.tools.generic.IProvider;
 
 public class Merger<C extends Comparable<C>> {
+  
+  private Comparator<C> comparator;
+
+
+  public Merger(Comparator<C> comparator) {
+    this.comparator = comparator;
+  }
 
   private class Source<T> {
     public Source(IProvider<T> stream, IFunction<T, C> metric) {
@@ -29,7 +38,11 @@ public class Merger<C extends Comparable<C>> {
 
     @Override
     public int compareTo(Wrapper<T> that) {
-      return -source.metric.get(object).compareTo(that.source.metric.get(that.object));
+      return comparator.compare(metric(), that.metric());
+    }
+
+    public C metric() {
+      return source.metric.get(object);
     }
 
   }
@@ -60,12 +73,28 @@ public class Merger<C extends Comparable<C>> {
       queue.add(w);
   }
 
-  public Object next() {    
+  public Entry<C, Object> next() {    
     Wrapper<?> w = queue.poll();
     if (w == null)
       return null;
     feedQueue(w.source);            
-    return w.object;     
+    return new Entry<C, Object>() {
+
+      @Override
+      public C getKey() {
+        return w.metric();
+      }
+
+      @Override
+      public Object getValue() {
+        return w.object;
+      }
+
+      @Override
+      public Object setValue(Object value) {
+        return null;
+      }
+    };
   }
 
 }
