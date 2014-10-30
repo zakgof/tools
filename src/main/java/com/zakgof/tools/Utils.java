@@ -51,4 +51,22 @@ public class Utils {
     return String.format("%.1f", value);    
   }
 
+  public static Float parseFloat(String s) {
+    if (s == null)
+      return null;
+    try {
+      return Float.parseFloat(s);      
+    } catch (NumberFormatException e) {      
+    }
+    try {
+      return Float.parseFloat(s.replace(',', '.'));      
+    } catch (NumberFormatException e) {      
+    }
+    return null;        
+  }
+
+  public static LocalDate parseDate(String date) {
+    return LocalDate.parse(date, DateTimeFormatter.ofPattern("dd.MM.YYYY"));
+  }
+
 }
