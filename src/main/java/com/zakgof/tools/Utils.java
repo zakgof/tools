@@ -66,7 +66,11 @@ public class Utils {
   }
 
   public static LocalDate parseDate(String date) {
-    return LocalDate.parse(date, DateTimeFormatter.ofPattern("dd.MM.yyyy"));
+    try {
+      return LocalDate.parse(date, DateTimeFormatter.ofPattern("d.MM.yyyy"));
+    } catch (Exception e) {
+      return null;
+    }
   }
 
 }
