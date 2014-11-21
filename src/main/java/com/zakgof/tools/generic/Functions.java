@@ -1,5 +1,8 @@
 package com.zakgof.tools.generic;
 
+import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 
 public class Functions {
@@ -61,6 +64,35 @@ public class Functions {
         return (current = next.get(current));
       }
     };
+  }
+  
+  public static <K> K[] toArray(Class<K> clazz, Collection<K> collection) {
+    @SuppressWarnings("unchecked")
+    K[] array = (K[]) Array.newInstance(clazz, collection.size());
+    int i=0;
+    for (K element : collection)
+      array[i++] = element;
+    return array;
+  }
+  
+  @SuppressWarnings("unchecked")
+  public static <K> K[] newArray(Class<K> clazz, int len) {
+    return (K[]) Array.newInstance(clazz, len);    
+  }
+  
+  @SafeVarargs
+  public static <K> K[] newArray(Class<K> clazz, K... entries) {
+    return Arrays.copyOf(entries, entries.length, getArrayClass(clazz));
+  }
+  
+
+  @SuppressWarnings("unchecked")
+  private static <T> Class<T[]> getArrayClass(Class<T> clazz) {
+    try {
+      return (Class<T[]>) Class.forName("[L" + clazz.getName() + ";");
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(e);
+    }
   }
 
 }

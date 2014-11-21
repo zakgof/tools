@@ -38,6 +38,16 @@ public class SimpleInputStream {
   public byte readByte() throws IOException {
     return (byte) (stream.read() & 0xFF);
   }
+  
+  public Short readShort() throws IOException {
+    ByteBuffer buffer = ByteBuffer.allocate(2);
+    int bytes = read(buffer.array());
+    if (bytes == -1)
+      return null;
+    else if (bytes == 2)
+      return buffer.asShortBuffer().get();
+    throw new IOException("Can't read short");
+  }
 
   public Integer readInt() throws IOException {
     ByteBuffer buffer = ByteBuffer.allocate(4);

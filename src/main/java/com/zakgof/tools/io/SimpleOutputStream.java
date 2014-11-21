@@ -26,6 +26,10 @@ public class SimpleOutputStream {
 		this.stream.write(ByteBuffer.allocate(4).putInt(val).array());		
 	}
 	
+	public void write(short val) throws IOException {
+    this.stream.write(ByteBuffer.allocate(2).putShort(val).array());    
+  }
+	
 	public void write(double val) throws IOException {
 		this.stream.write(ByteBuffer.allocate(8).putDouble(val).array());		
 	}	

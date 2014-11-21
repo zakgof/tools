@@ -34,4 +34,8 @@ public class Buffer {
   public byte[] bytes() {
     return bytes;
   }
+
+  public int size() {
+    return bytes.length;
+  }
 }

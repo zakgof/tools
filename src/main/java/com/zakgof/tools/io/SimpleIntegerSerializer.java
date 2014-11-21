@@ -3,7 +3,7 @@ package com.zakgof.tools.io;
 import java.io.IOException;
 
 
-public class SimpleIntegerSerializer implements ISimpleSerializer<Integer> {
+public class SimpleIntegerSerializer implements ISimpleSerializer<Short> {
   
   public static SimpleIntegerSerializer INSTANCE = new SimpleIntegerSerializer();
   
@@ -11,13 +11,13 @@ public class SimpleIntegerSerializer implements ISimpleSerializer<Integer> {
   }
 
   @Override
-  public void write(SimpleOutputStream out, Integer val) throws IOException {
+  public void write(SimpleOutputStream out, Short val) throws IOException {
     out.write(val);      
   }
 
   @Override
-  public Integer read(SimpleInputStream in) throws IOException {
-    return in.readInt();
+  public Short read(SimpleInputStream in) throws IOException {
+    return in.readShort();
   }
   
 }

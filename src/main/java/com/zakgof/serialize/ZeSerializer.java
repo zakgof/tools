@@ -25,6 +25,7 @@ import java.util.Set;
 import com.zakgof.tools.io.ISimpleSerializer;
 import com.zakgof.tools.io.SimpleBooleanSerializer;
 import com.zakgof.tools.io.SimpleByteArraySerializer;
+import com.zakgof.tools.io.SimpleByteSerializer;
 import com.zakgof.tools.io.SimpleDateSerializer;
 import com.zakgof.tools.io.SimpleDoubleSerializer;
 import com.zakgof.tools.io.SimpleFloatSerializer;
@@ -34,6 +35,7 @@ import com.zakgof.tools.io.SimpleLocalDateSerializer;
 import com.zakgof.tools.io.SimpleLocalDateTimeSerializer;
 import com.zakgof.tools.io.SimpleLongSerializer;
 import com.zakgof.tools.io.SimpleOutputStream;
+import com.zakgof.tools.io.SimpleShortSerializer;
 import com.zakgof.tools.io.SimpleStringSerializer;
 
 @SuppressWarnings("rawtypes")
@@ -117,11 +119,15 @@ public class ZeSerializer implements ISerializer {
   private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<Class<?>, ISimpleSerializer<?>>();
 
   private void initSerializers() {
+    serializers.put(byte.class, SimpleByteSerializer.INSTANCE);
+    serializers.put(short.class, SimpleShortSerializer.INSTANCE);
     serializers.put(int.class, SimpleIntegerSerializer.INSTANCE);
     serializers.put(long.class, SimpleLongSerializer.INSTANCE);
     serializers.put(float.class, SimpleFloatSerializer.INSTANCE);
     serializers.put(double.class, SimpleDoubleSerializer.INSTANCE);
     serializers.put(boolean.class, SimpleBooleanSerializer.INSTANCE);
+    serializers.put(Byte.class, SimpleByteSerializer.INSTANCE);
+    serializers.put(Short.class, SimpleShortSerializer.INSTANCE);
     serializers.put(Integer.class, SimpleIntegerSerializer.INSTANCE);
     serializers.put(Long.class, SimpleLongSerializer.INSTANCE);
     serializers.put(Float.class, SimpleFloatSerializer.INSTANCE);
