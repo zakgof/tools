@@ -87,12 +87,19 @@ public class Functions {
   
 
   @SuppressWarnings("unchecked")
-  private static <T> Class<T[]> getArrayClass(Class<T> clazz) {
+  public static <T> Class<T[]> getArrayClass(Class<T> clazz) {
     try {
       return (Class<T[]>) Class.forName("[L" + clazz.getName() + ";");
     } catch (ClassNotFoundException e) {
       throw new RuntimeException(e);
     }
+  }
+  
+  public static <K> boolean contains(K[] array, K value) {
+    for (K e : array)
+      if (e.equals(value))
+        return true;
+    return false;
   }
 
 }
