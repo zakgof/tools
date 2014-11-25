@@ -15,7 +15,7 @@ public class Functions {
       }
     };
   }
-  
+
   public static <T extends Comparable<T>> Comparator<T> comparator() {
     return new Comparator<T>() {
       @Override
@@ -24,7 +24,7 @@ public class Functions {
       }
     };
   }
-  
+
   public static <T extends Comparable<T>> Comparator<T> reverseComparator() {
     return new Comparator<T>() {
       @Override
@@ -33,7 +33,7 @@ public class Functions {
       }
     };
   }
-  
+
   public static <T, K extends Comparable<K>> Comparator<T> comparator(IFunction<T, K> getter) {
     return new Comparator<T>() {
       @Override
@@ -42,7 +42,7 @@ public class Functions {
       }
     };
   }
-  
+
   public static <T, K extends Comparable<K>> Comparator<T> reverseComparator(IFunction<T, K> getter) {
     return new Comparator<T>() {
       @Override
@@ -51,10 +51,10 @@ public class Functions {
       }
     };
   }
-  
+
   public static <T> IProvider<T> firstNext(IProvider<T> first, IFunction<T, T> next) {
     return new IProvider<T>() {
-      
+
       private T current;
 
       @Override
@@ -65,26 +65,25 @@ public class Functions {
       }
     };
   }
-  
+
   public static <K> K[] toArray(Class<K> clazz, Collection<K> collection) {
     @SuppressWarnings("unchecked")
     K[] array = (K[]) Array.newInstance(clazz, collection.size());
-    int i=0;
+    int i = 0;
     for (K element : collection)
       array[i++] = element;
     return array;
   }
-  
+
   @SuppressWarnings("unchecked")
   public static <K> K[] newArray(Class<K> clazz, int len) {
-    return (K[]) Array.newInstance(clazz, len);    
+    return (K[]) Array.newInstance(clazz, len);
   }
-  
+
   @SafeVarargs
   public static <K> K[] newArray(Class<K> clazz, K... entries) {
     return Arrays.copyOf(entries, entries.length, getArrayClass(clazz));
   }
-  
 
   @SuppressWarnings("unchecked")
   public static <T> Class<T[]> getArrayClass(Class<T> clazz) {
@@ -94,12 +93,21 @@ public class Functions {
       throw new RuntimeException(e);
     }
   }
-  
+
   public static <K> boolean contains(K[] array, K value) {
     for (K e : array)
       if (e.equals(value))
         return true;
     return false;
+  }
+
+  public static <K> int indexOf(K[] array, K value) {
+    for (int i = 0; i < array.length; i++) {
+      K e = array[i];
+      if (e.equals(value))
+        return i;
+    }
+    return -1;
   }
 
 }
