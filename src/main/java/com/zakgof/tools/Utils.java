@@ -46,6 +46,8 @@ public class Utils {
   }
   
   public static String weight(float value) {
+    if (value == 0)
+      return "?";
     if (Math.abs(value - Math.floor(value)) < 0.01)
       return String.format("%.0f", Math.floor(value));
     return String.format("%.1f", value);    
