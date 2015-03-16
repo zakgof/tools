@@ -10,23 +10,25 @@ public class Buffer {
   @Deprecated
   private Buffer() {
   }
-  
+
   public Buffer(byte[] bytes) {
     this.bytes = bytes;
   }
-  
+
   private byte[] bytes;
-  
+
   @Override
   public boolean equals(Object o) {
+    if (!(o instanceof Buffer))
+      return false;
     return Arrays.equals(bytes, ((Buffer)o).bytes);
   }
-  
+
   @Override
   public int hashCode() {
     return Arrays.hashCode(bytes);
   }
-  
+
   public InputStream stream() {
     return new ByteArrayInputStream(bytes);
   }
