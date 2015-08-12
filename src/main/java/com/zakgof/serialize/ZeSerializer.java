@@ -71,7 +71,7 @@ public class ZeSerializer implements ISerializer {
 
   public void serialize(Object object, OutputStream os) throws IOException {
     SimpleOutputStream sos = new SimpleOutputStream(os);
-    fieldSerializer.write(object, object.getClass(), sos);    
+    fieldSerializer.write(object, object.getClass(), sos, true);    
   }
 
   @SuppressWarnings("unchecked")
@@ -80,7 +80,7 @@ public class ZeSerializer implements ISerializer {
     // long start = System.currentTimeMillis();
     try {
       SimpleInputStream sis = new SimpleInputStream(is);
-      return (T) fieldSerializer.read(sis, clazz);
+      return (T) fieldSerializer.read(sis, clazz, true);
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
@@ -112,7 +112,7 @@ public class ZeSerializer implements ISerializer {
     T read(SimpleInputStream sis, Class<? extends T> clazz) throws IOException;
   }
 
-  private final IFieldSerializer<Object> fieldSerializer = new FieldSerializer();
+  private final FieldSerializer fieldSerializer = new FieldSerializer();
   private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
   private final IFieldSerializer<Object> pojoSerializer;
 
@@ -274,12 +274,13 @@ public class ZeSerializer implements ISerializer {
   }
 
   private class FieldSerializer implements IFieldSerializer<Object> {
-
-    @Override
-    public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-      if (!clazz.isPrimitive())
-        if (!writeHeader(object, clazz, sos))
-          return;
+    
+    public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
+      if (!noHeader) {
+        if (!clazz.isPrimitive())
+          if (!writeHeader(object, clazz, sos))
+            return;
+      }
       Class<? extends Object> actualClazz = object.getClass();
       @SuppressWarnings("unchecked")
       ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
@@ -291,14 +292,20 @@ public class ZeSerializer implements ISerializer {
         pojoSerializer.write(object, actualClazz, sos);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
-    public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
+    public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
+     write(object, clazz, sos, false);
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object read(SimpleInputStream sis, Class<?> clazz, boolean noHeader) throws IOException {
       Class<?> realClazz = clazz;
-      if (!clazz.isPrimitive()) {
-        realClazz = readHeader(sis, clazz);
-        if (realClazz == null)
-          return null;
+      if (!noHeader) {
+        if (!clazz.isPrimitive()) {
+          realClazz = readHeader(sis, clazz);
+          if (realClazz == null)
+            return null;
+        }
       }
 
       ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(realClazz);
@@ -308,6 +315,11 @@ public class ZeSerializer implements ISerializer {
         return arraySerializer.read(sis, realClazz);
       else
         return pojoSerializer.read(sis, realClazz);
+    }
+    
+    @Override
+    public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
+      return read(sis, clazz, false);
     }
 
     private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
