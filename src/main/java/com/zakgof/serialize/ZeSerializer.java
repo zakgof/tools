@@ -22,6 +22,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.objenesis.Objenesis;
+import org.objenesis.ObjenesisSerializer;
+
 import com.zakgof.tools.io.ISimpleSerializer;
 import com.zakgof.tools.io.SimpleBooleanSerializer;
 import com.zakgof.tools.io.SimpleByteArraySerializer;
@@ -43,7 +46,7 @@ public class ZeSerializer implements ISerializer {
 
   public static final String COMPATIBLE_POJOS = "compatible.pojos";
   // private Map<String, ?> parameters;
-
+  
   public ZeSerializer(Map<String, ?> parameters) {
     // this.parameters = parameters;
     initSerializers();
@@ -53,6 +56,8 @@ public class ZeSerializer implements ISerializer {
   public ZeSerializer() {   
     this(new HashMap<>());
   }
+  
+  private Objenesis objenesis = new ObjenesisSerializer();
 
   @Override
   public byte[] serialize(Object object) {
@@ -165,11 +170,7 @@ public class ZeSerializer implements ISerializer {
     @Override
     public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
       try {
-
-        Constructor<?> constructor = clazz.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        Object object = constructor.newInstance();
-
+        Object object = objenesis.getInstantiatorOf(clazz).newInstance();
         for (Field field : getAllFields(clazz)) {
           if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
             field.setAccessible(true);
@@ -177,7 +178,6 @@ public class ZeSerializer implements ISerializer {
             field.set(object, value);
           }
         }
-
         return object;
       } catch (Exception e) {
         throw new RuntimeException(e);
