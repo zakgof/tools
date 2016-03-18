@@ -113,4 +113,8 @@ public class Serializers {
     };
   }
 
+  public static <T> ISimpleSerializer<Collection<T>> collection(ISimpleSerializer<T> elementSerializer) {
+    return new SimpleCollectionSerializer<T, ISimpleSerializer<T>>(elementSerializer);
+  }
+
 }
