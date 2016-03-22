@@ -3,6 +3,7 @@ package com.zakgof.tools.io;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public class SimpleCollectionSerializer<T, S extends ISimpleSerializer<T>> implements ISimpleSerializer<Collection<T>> {
 
@@ -20,9 +21,9 @@ public class SimpleCollectionSerializer<T, S extends ISimpleSerializer<T>> imple
   }
 
   @Override
-  public Collection<T> read(SimpleInputStream in) throws IOException {
+  public List<T> read(SimpleInputStream in) throws IOException {
     final int length = in.readInt();
-    final Collection<T> arr = new ArrayList<T>(length);
+    final List<T> arr = new ArrayList<T>(length);
     for (int i = 0; i < length; i++)
       arr.add(elementSerializer.read(in));
     return arr;

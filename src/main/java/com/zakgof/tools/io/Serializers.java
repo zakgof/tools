@@ -3,12 +3,15 @@ package com.zakgof.tools.io;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 import com.zakgof.tools.generic.IFunction2;
 import com.zakgof.tools.generic.IFunction3;
 import com.zakgof.tools.generic.IFunction4;
+import com.zakgof.tools.generic.Pair;
 
 public class Serializers {
 
@@ -116,5 +119,89 @@ public class Serializers {
   public static <T> ISimpleSerializer<Collection<T>> collection(ISimpleSerializer<T> elementSerializer) {
     return new SimpleCollectionSerializer<T, ISimpleSerializer<T>>(elementSerializer);
   }
+
+  public static <T> PolymorhSerializedBuilder<T> polymorph() {
+    return new PolymorhSerializedBuilder<T>();
+  }
+  
+  public static class PolymorhSerializedBuilder<T> {
+
+    private Map<String, ISimpleSerializer<? extends T>> map = new HashMap<>();
+
+    public <I extends T> PolymorhSerializedBuilder<T> impl(Class<I> implClass, ISimpleSerializer<? extends T> implSerializer) {
+       map.put(implClass.getName(), implSerializer);
+       return this;
+    }
+
+    public ISimpleSerializer<T> done() {
+      return new ISimpleSerializer<T>() {
+
+        @SuppressWarnings({ "rawtypes", "unchecked" })
+        @Override
+        public void write(SimpleOutputStream out, T val) throws IOException {
+          Class<? extends T> implClass = (Class<? extends T>) val.getClass();
+          String classname = implClass.getName();
+          out.write(classname);
+          ISimpleSerializer serializer = map.get(implClass.getName());
+          serializer.write(out, val);
+        }
+
+        @Override
+        public T read(SimpleInputStream in) throws IOException {
+          String className = in.readString();
+          return map.get(className).read(in);
+        }
+      };
+    }
+    
+  }
+
+  public static <T> Builder<T> builder() {
+    return new Builder<T>();
+  }
+  
+  public static class Builder<T> {
+
+    private List<Pair<Function<T,?>, ISimpleSerializer<?>>> list = new ArrayList<>();
+
+    public <F> Builder<T> getter(Function<T, ? extends F> getter, ISimpleSerializer<? extends F> serializer) {
+      list.add(Pair.create(getter, serializer));
+      return this;
+    }
+
+    public Builder<T> intGetter(Function<T, Integer> getter) {
+      return getter(getter, SimpleIntegerSerializer.INSTANCE);
+    }
+    
+    public Builder<T> stringGetter(Function<T, String> getter) {
+      return getter(getter, SimpleStringSerializer.INSTANCE);
+    }
+
+    public ISimpleSerializer<T> constructor(Function<Object[], T> constructor ) {
+      return new ISimpleSerializer<T>() {
+
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        @Override
+        public void write(SimpleOutputStream out, T val) throws IOException {
+          for (Pair<Function<T,?>, ISimpleSerializer<?>> entry : list) {
+            Object field = entry.first().apply(val);
+            ((ISimpleSerializer)entry.second()).write(out, field);
+          }
+        }
+
+        @Override
+        public T read(SimpleInputStream in) throws IOException {
+          Object[] args = new Object[list.size()];
+          for (int i=0; i<list.size(); i++) {
+            args[i] = list.get(i).second().read(in);
+          }
+          return constructor.apply(args);
+        }
+        
+      };
+    }   
+    
+  }
+  
 
 }
