@@ -15,6 +15,10 @@ import com.zakgof.tools.generic.Pair;
 
 public class Serializers {
 
+  public static <K, V> ISimpleSerializer<Pair<K, V>> pair(ISimpleSerializer<K> keyser, ISimpleSerializer<V> valser) {
+    return Serializers.fields(Pair::first, Pair::second, keyser, valser, Pair::create);
+  }
+
   public static <A, E> ISimpleSerializer<A> collection(final Function<A, Collection<E>> writer, Function <Collection<E>, A> reader, final ISimpleSerializer<E> elementSerializer) {
     
     return new ISimpleSerializer<A>() {
