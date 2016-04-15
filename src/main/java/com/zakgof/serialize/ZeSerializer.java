@@ -23,7 +23,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.objenesis.Objenesis;
-import org.objenesis.ObjenesisSerializer;
+import org.objenesis.ObjenesisStd;
 
 import com.zakgof.tools.io.ISimpleSerializer;
 import com.zakgof.tools.io.SimpleBooleanSerializer;
@@ -45,10 +45,11 @@ import com.zakgof.tools.io.SimpleStringSerializer;
 public class ZeSerializer implements ISerializer {
 
   public static final String COMPATIBLE_POJOS = "compatible.pojos";
-  // private Map<String, ?> parameters;
+  public static final String FORCED_HEADER = "forced.header";
+  private Map<String, ?> parameters;
   
   public ZeSerializer(Map<String, ?> parameters) {
-    // this.parameters = parameters;
+    this.parameters = parameters;
     initSerializers();
     pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
   }
@@ -57,7 +58,7 @@ public class ZeSerializer implements ISerializer {
     this(new HashMap<>());
   }
   
-  private Objenesis objenesis = new ObjenesisSerializer();
+  private Objenesis objenesis = new ObjenesisStd();
 
   @Override
   public byte[] serialize(Object object) {
@@ -76,7 +77,8 @@ public class ZeSerializer implements ISerializer {
 
   public void serialize(Object object, OutputStream os) throws IOException {
     SimpleOutputStream sos = new SimpleOutputStream(os);
-    fieldSerializer.write(object, object.getClass(), sos, true);    
+    boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
+    fieldSerializer.write(object, object.getClass(), sos, hoHeader);    
   }
 
   @SuppressWarnings("unchecked")
@@ -85,7 +87,8 @@ public class ZeSerializer implements ISerializer {
     // long start = System.currentTimeMillis();
     try {
       SimpleInputStream sis = new SimpleInputStream(is);
-      return (T) fieldSerializer.read(sis, clazz, true);
+      boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
+      return (T) fieldSerializer.read(sis, clazz, hoHeader);
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
