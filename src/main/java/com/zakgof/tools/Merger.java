@@ -5,9 +5,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
-import com.zakgof.tools.generic.IFunction;
-import com.zakgof.tools.generic.IProvider;
 
 public class Merger<C extends Comparable<C>> {
   
@@ -19,12 +19,12 @@ public class Merger<C extends Comparable<C>> {
   }
 
   private class Source<T> {
-    public Source(IProvider<T> stream, IFunction<T, C> metric) {
+    public Source(Supplier<T> stream, Function<T, C> metric) {
       this.stream = stream;
       this.metric = metric;
     }    
-    private final IFunction<T, C> metric;
-    private final IProvider<T> stream;
+    private final Function<T, C> metric;
+    private final Supplier<T> stream;
   }
 
   private class Wrapper<T> implements Comparable<Wrapper<T>> {
@@ -42,7 +42,7 @@ public class Merger<C extends Comparable<C>> {
     }
 
     public C metric() {
-      return source.metric.get(object);
+      return source.metric.apply(object);
     }
 
   }
@@ -54,7 +54,7 @@ public class Merger<C extends Comparable<C>> {
     return null;
   }
 
-  public <T> void addSource(IFunction<T, C> metric, IProvider<T> stream) {
+  public <T> void addSource(Function<T, C> metric, Supplier<T> stream) {
     sources.add(new Source<T>(stream, metric)); 
   }
 

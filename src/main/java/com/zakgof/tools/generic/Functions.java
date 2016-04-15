@@ -4,6 +4,8 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class Functions {
 
@@ -52,8 +54,8 @@ public class Functions {
     };
   }
 
-  public static <T> IProvider<T> firstNext(IProvider<T> first, IFunction<T, T> next) {
-    return new IProvider<T>() {
+  public static <T> Supplier<T> firstNext(Supplier<T> first, Function<T, T> next) {
+    return new Supplier<T>() {
 
       private T current;
 
@@ -61,7 +63,7 @@ public class Functions {
       public T get() {
         if (current == null)
           return (current = first.get());
-        return (current = next.get(current));
+        return (current = next.apply(current));
       }
     };
   }
