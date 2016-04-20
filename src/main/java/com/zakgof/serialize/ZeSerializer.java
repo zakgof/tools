@@ -46,19 +46,21 @@ public class ZeSerializer implements ISerializer {
 
   public static final String COMPATIBLE_POJOS = "compatible.pojos";
   public static final String FORCED_HEADER = "forced.header";
+  public static final String USE_OBJENESIS = "use.objenesis";
   private Map<String, ?> parameters;
-  
+
   public ZeSerializer(Map<String, ?> parameters) {
     this.parameters = parameters;
     initSerializers();
     pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
+    objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
   }
-  
-  public ZeSerializer() {   
+
+  public ZeSerializer() {
     this(new HashMap<>());
   }
-  
-  private Objenesis objenesis = new ObjenesisStd();
+
+  private final Objenesis objenesis;
 
   @Override
   public byte[] serialize(Object object) {
@@ -71,14 +73,15 @@ public class ZeSerializer implements ISerializer {
       throw new RuntimeException(e);
     } finally {
       // long end = System.currentTimeMillis();
-      // Log.w("perf", "serialize " + object.getClass().getSimpleName() + " in " + (end-start));
+      // Log.w("perf", "serialize " + object.getClass().getSimpleName() + " in "
+      // + (end-start));
     }
   }
 
   public void serialize(Object object, OutputStream os) throws IOException {
     SimpleOutputStream sos = new SimpleOutputStream(os);
     boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-    fieldSerializer.write(object, object.getClass(), sos, hoHeader);    
+    fieldSerializer.write(object, object.getClass(), sos, hoHeader);
   }
 
   @SuppressWarnings("unchecked")
@@ -93,13 +96,14 @@ public class ZeSerializer implements ISerializer {
       throw new RuntimeException(e);
     } finally {
       // long end = System.currentTimeMillis();
-      // Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " + (end-start));
+      // Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " +
+      // (end-start));
     }
   }
 
   public static List<Field> getAllFields(Class<?> type) {
     List<Field> fields = new ArrayList<Field>();
-    
+
     Field[] declaredFields = type.getDeclaredFields();
     Arrays.sort(declaredFields, new Comparator<Field>() {
       @Override
@@ -153,7 +157,17 @@ public class ZeSerializer implements ISerializer {
     serializers.put(LocalDate.class, SimpleLocalDateSerializer.INSTANCE);
     serializers.put(LocalDateTime.class, SimpleLocalDateTimeSerializer.INSTANCE);
   }
-  
+
+  private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
+    if (objenesis != null) {
+      return objenesis.getInstantiatorOf(clazz).newInstance();
+    } else {
+      Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
+      noArgConsructor.setAccessible(true);
+      return noArgConsructor.newInstance();
+    }
+  }
+
   private class PojoSerializer implements IFieldSerializer<Object> {
 
     @Override
@@ -173,7 +187,7 @@ public class ZeSerializer implements ISerializer {
     @Override
     public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
       try {
-        Object object = objenesis.getInstantiatorOf(clazz).newInstance();
+        Object object = instantiate(clazz);
         for (Field field : getAllFields(clazz)) {
           if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
             field.setAccessible(true);
@@ -186,9 +200,8 @@ public class ZeSerializer implements ISerializer {
         throw new RuntimeException(e);
       }
     }
-
   }
-  
+
   private class CompatiblePojoSerializer implements IFieldSerializer<Object> {
 
     @Override
@@ -197,9 +210,9 @@ public class ZeSerializer implements ISerializer {
         sos.write(getAllFields(clazz).size());
         for (Field field : getAllFields(clazz)) {
           if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-            field.setAccessible(true);            
-            sos.write(field.getName());                        
-            fieldSerializer.write(field.get(object), Object.class, sos);                        
+            field.setAccessible(true);
+            sos.write(field.getName());
+            fieldSerializer.write(field.get(object), Object.class, sos);
           }
         }
       } catch (IllegalAccessException e) {
@@ -214,10 +227,10 @@ public class ZeSerializer implements ISerializer {
         Constructor<?> constructor = clazz.getDeclaredConstructor();
         constructor.setAccessible(true);
         Object object = constructor.newInstance();
-        
+
         Integer fieldCount = sis.readInt();
-        
-        for (int i=0; i<fieldCount; i++) {
+
+        for (int i = 0; i < fieldCount; i++) {
           String name = sis.readString();
           Object fieldValue = fieldSerializer.read(sis, Object.class);
           if (!assignFieldValue(clazz, object, name, fieldValue))
@@ -236,7 +249,7 @@ public class ZeSerializer implements ISerializer {
           if (field.getName().equals(name)) {
             field.setAccessible(true);
             if (fieldValue == null || field.getType().isAssignableFrom(fieldValue.getClass()))
-                field.set(object, fieldValue);                            
+              field.set(object, fieldValue);
             else
               System.err.println("Field " + field.getName() + " from " + clazz + " cannot be assigned the value " + fieldValue);
             return true;
@@ -261,7 +274,7 @@ public class ZeSerializer implements ISerializer {
     }
 
     @Override
-    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {      
+    public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
       int length = sis.readInt();
       if (length < 0)
         throw new RuntimeException("Invalid array length");
@@ -277,7 +290,7 @@ public class ZeSerializer implements ISerializer {
   }
 
   private class FieldSerializer implements IFieldSerializer<Object> {
-    
+
     public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
       if (!noHeader) {
         if (!clazz.isPrimitive())
@@ -297,7 +310,7 @@ public class ZeSerializer implements ISerializer {
 
     @Override
     public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-     write(object, clazz, sos, false);
+      write(object, clazz, sos, false);
     }
 
     @SuppressWarnings("unchecked")
@@ -319,7 +332,7 @@ public class ZeSerializer implements ISerializer {
       else
         return pojoSerializer.read(sis, realClazz);
     }
-    
+
     @Override
     public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
       return read(sis, clazz, false);
@@ -381,9 +394,9 @@ public class ZeSerializer implements ISerializer {
     }
 
   }
-  
+
   private class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
-    
+
     private final Class<T> clazz;
 
     CollectionSerializer(Class<T> clazz) {
@@ -416,8 +429,6 @@ public class ZeSerializer implements ISerializer {
       }
       return (T) instance;
     }
-
-   
 
   }
 }
