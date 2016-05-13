@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 
-public class SimpleInputStream {
+public class SimpleInputStream implements AutoCloseable {
 
   private final InputStream stream;
   private final long position = 0;
