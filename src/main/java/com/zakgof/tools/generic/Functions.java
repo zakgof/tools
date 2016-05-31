@@ -4,8 +4,10 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.OptionalDouble;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.DoubleStream;
 
 public class Functions {
 
@@ -110,6 +112,10 @@ public class Functions {
         return i;
     }
     return -1;
+  }
+
+  public static DoubleStream stream(OptionalDouble f) {
+    return f.isPresent() ? DoubleStream.of(f.getAsDouble()): DoubleStream.empty();
   }
 
 }
