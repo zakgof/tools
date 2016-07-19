@@ -338,6 +338,7 @@ public class ZeSerializer implements ISerializer {
       return read(sis, clazz, false);
     }
 
+    // TODO: check and fix circular references
     private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
       if (val == null) {
         sos.write((byte) 0);
