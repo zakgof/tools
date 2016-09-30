@@ -4,8 +4,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
+import com.annimon.stream.Collectors;
+import com.annimon.stream.Stream;
 
 public class Xml {
   private final String name;
@@ -58,7 +59,7 @@ public class Xml {
     StringBuilder sb = new StringBuilder();
     if (name != null) {
       sb.append("<").append(name);
-      params.entrySet().stream().forEach(e -> {
+      Stream.of(params.entrySet()).forEach(e -> {
         sb.append(" ").append(e.getKey()).append("=\"").append(e.getValue()).append("\"");
       });
       sb.append(">");

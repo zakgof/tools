@@ -1,12 +1,9 @@
 package com.zakgof.tools.generic;
 
 import java.util.Iterator;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.function.Function;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
+import com.annimon.stream.Stream;
 import com.google.common.base.Predicate;
 
 public class Streams {
@@ -31,7 +28,7 @@ public class Streams {
         return ret;
       }
     };
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED), false);
+    return Stream.of(it);
   }
 
 }

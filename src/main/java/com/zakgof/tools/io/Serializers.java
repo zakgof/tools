@@ -6,8 +6,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
+import com.annimon.stream.function.Function;
 import com.zakgof.tools.generic.IFunction2;
 import com.zakgof.tools.generic.IFunction3;
 import com.zakgof.tools.generic.IFunction4;

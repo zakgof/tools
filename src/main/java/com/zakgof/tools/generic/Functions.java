@@ -5,14 +5,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.OptionalDouble;
-import java.util.Spliterator;
-import java.util.Spliterators;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.stream.DoubleStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
+
+import com.annimon.stream.Stream;
+import com.annimon.stream.function.Function;
+import com.annimon.stream.function.Supplier;
 
 public class Functions {
 
@@ -119,15 +115,8 @@ public class Functions {
     return -1;
   }
 
-  public static DoubleStream stream(OptionalDouble f) {
-    return f.isPresent() ? DoubleStream.of(f.getAsDouble()): DoubleStream.empty();
-  }
-
   public static <T> Stream<T> stream(Iterator<T> iterator) {
-    return StreamSupport.stream(
-        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED),
-        false);
-    
+    return Stream.of(iterator);
   }
 
 }
