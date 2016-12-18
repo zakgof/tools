@@ -8,8 +8,6 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -34,8 +32,6 @@ import com.zakgof.tools.io.SimpleDoubleSerializer;
 import com.zakgof.tools.io.SimpleFloatSerializer;
 import com.zakgof.tools.io.SimpleInputStream;
 import com.zakgof.tools.io.SimpleIntegerSerializer;
-import com.zakgof.tools.io.SimpleLocalDateSerializer;
-import com.zakgof.tools.io.SimpleLocalDateTimeSerializer;
 import com.zakgof.tools.io.SimpleLongSerializer;
 import com.zakgof.tools.io.SimpleOutputStream;
 import com.zakgof.tools.io.SimpleShortSerializer;
@@ -154,8 +150,6 @@ public class ZeSerializer implements ISerializer {
     serializers.put(List.class, new CollectionSerializer<ArrayList>(ArrayList.class));
     serializers.put(Set.class, new CollectionSerializer<HashSet>(HashSet.class));
     serializers.put(HashSet.class, new CollectionSerializer<HashSet>(HashSet.class));
-    serializers.put(LocalDate.class, SimpleLocalDateSerializer.INSTANCE);
-    serializers.put(LocalDateTime.class, SimpleLocalDateTimeSerializer.INSTANCE);
   }
 
   private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
