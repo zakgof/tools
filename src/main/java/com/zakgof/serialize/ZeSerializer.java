@@ -81,9 +81,14 @@ public class ZeSerializer implements ISerializer {
   }
 
   public void serialize(Object object, OutputStream os) throws IOException {
-    SimpleOutputStream sos = new SimpleOutputStream(os);
-    boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-    fieldSerializer.write(object, object.getClass(), sos, hoHeader);
+	  try {
+	    SimpleOutputStream sos = new SimpleOutputStream(os);
+	    boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
+	    fieldSerializer.write(object, object.getClass(), sos, hoHeader);
+	  } finally {
+		knownObjectList.clear();
+		knownObjects.clear();
+	}    
   }
 
   @SuppressWarnings("unchecked")
@@ -100,6 +105,8 @@ public class ZeSerializer implements ISerializer {
       // long end = System.currentTimeMillis();
       // Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " +
       // (end-start));
+  		knownObjectList.clear();
+  		knownObjects.clear();
     }
   }
 
