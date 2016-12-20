@@ -52,7 +52,6 @@ public class ZeSerializer implements ISerializer {
     public ZeSerializer(Map<String, ?> parameters) {
         this.parameters = parameters;
         initSerializers();
-        pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
         objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
     }
 
@@ -136,7 +135,7 @@ public class ZeSerializer implements ISerializer {
 
     private final FieldSerializer fieldSerializer = new FieldSerializer();
     private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
-    private final IFieldSerializer<Object> pojoSerializer;
+    private final PojoSerializer pojoSerializer = new PojoSerializer();
 
     private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
 
@@ -167,8 +166,8 @@ public class ZeSerializer implements ISerializer {
         serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
     }
 
-    private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
-        Object instance = createObject(clazz);
+    private Object instantiate(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
+        Object instance = createObject(clazz, outer);
         if (!clazz.isPrimitive()) {
             rememberObject(instance);
         }
@@ -182,11 +181,17 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private Object createObject(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
+    private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
         try {
-            Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
-            noArgConsructor.setAccessible(true);
-            return noArgConsructor.newInstance();
+            if (outer == null) {
+                Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
+                noArgConsructor.setAccessible(true);
+                return noArgConsructor.newInstance();
+            } else {
+                Constructor<? extends Object> outerThisConsructor = clazz.getDeclaredConstructor(outer.getClass()); // TODO: different outer class
+                outerThisConsructor.setAccessible(true);
+                return outerThisConsructor.newInstance(outer);
+            }
         } catch (NoSuchMethodException e) {
             if (objenesis != null)
                 return objenesis.getInstantiatorOf(clazz).newInstance();
@@ -194,9 +199,8 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private class PojoSerializer implements IFieldSerializer<Object> {
+    private class PojoSerializer {
 
-        @Override
         public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
             try {
                 for (Field field : getAllFields(clazz)) {
@@ -210,10 +214,9 @@ public class ZeSerializer implements ISerializer {
             }
         }
 
-        @Override
-        public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+        public Object read(SimpleInputStream sis, Class<? extends Object> clazz, Object outer) throws IOException {
             try {
-                Object object = instantiate(clazz);
+                Object object = instantiate(clazz, outer);
                 for (Field field : getAllFields(clazz)) {
                     if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
                         field.setAccessible(true);
@@ -226,61 +229,6 @@ public class ZeSerializer implements ISerializer {
                 throw new RuntimeException(e);
             }
         }
-    }
-
-    private class CompatiblePojoSerializer implements IFieldSerializer<Object> {
-
-        @Override
-        public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
-            try {
-                sos.write(getAllFields(clazz).size());
-                for (Field field : getAllFields(clazz)) {
-                    if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-                        field.setAccessible(true);
-                        sos.write(field.getName());
-                        fieldSerializer.write(field.get(object), Object.class, sos);
-                    }
-                }
-            } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        @Override
-        public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
-            try {
-                Object object = instantiate(clazz);
-                Integer fieldCount = sis.readInt();
-
-                for (int i = 0; i < fieldCount; i++) {
-                    String name = sis.readString();
-                    Object fieldValue = fieldSerializer.read(sis, Object.class);
-                    if (!assignFieldValue(clazz, object, name, fieldValue))
-                        System.err.println("field" + name + " with value " + fieldValue + " not found in the class " + clazz);
-                }
-
-                return object;
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private boolean assignFieldValue(Class<? extends Object> clazz, Object object, String name, Object fieldValue) throws IllegalAccessException {
-            for (Field field : getAllFields(clazz)) {
-                if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-                    if (field.getName().equals(name)) {
-                        field.setAccessible(true);
-                        if (fieldValue == null || field.getType().isAssignableFrom(fieldValue.getClass()))
-                            field.set(object, fieldValue);
-                        else
-                            System.err.println("Field " + field.getName() + " from " + clazz + " cannot be assigned the value " + fieldValue);
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
     }
 
     private class ArraySerializer implements IFieldSerializer<Object> {
@@ -324,6 +272,19 @@ public class ZeSerializer implements ISerializer {
             }
 
             Class<? extends Object> actualClazz = object.getClass();
+
+            if (object.getClass().getEnclosingClass() != null && (object.getClass().getModifiers() & Modifier.STATIC) == 0) {
+                Object outer = null;
+                try {
+                    Field outerField = object.getClass().getDeclaredField("this$0");
+                    outerField.setAccessible(true);
+                    outer = outerField.get(object);
+                    fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
+                    rememberObject(outer);
+                } catch (ReflectiveOperationException e) {
+                    e.printStackTrace();
+                }
+            }
 
             if (!clazz.isPrimitive())
                 rememberObject(object);
@@ -369,12 +330,17 @@ public class ZeSerializer implements ISerializer {
                         }
                     } else {
                         throw new RuntimeException("Invalid hdr");
-
                     }
                 }
             }
 
-            Object object = readObject(sis, clazz, realClazz);
+            Object outer = null;
+            if (realClazz.getEnclosingClass() != null && (realClazz.getModifiers() & Modifier.STATIC) == 0) {
+                outer = read(sis, realClazz.getDeclaringClass());
+                rememberObject(outer);
+            }
+
+            Object object = readObject(sis, realClazz, outer);
             if (!realClazz.isPrimitive()) {
                 rememberObject(object);
             }
@@ -382,9 +348,9 @@ public class ZeSerializer implements ISerializer {
         }
 
         @SuppressWarnings("unchecked")
-        private Object readObject(SimpleInputStream sis, Class<?> clazz, Class<?> realClazz) throws IOException {
-            if (clazz.isEnum()) {
-                return new SimpleEnumSerializer(clazz).read(sis);
+        private Object readObject(SimpleInputStream sis, Class<?> realClazz, Object outer) throws IOException {
+            if (realClazz.isEnum()) {
+                return new SimpleEnumSerializer(realClazz).read(sis);
             }
             ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(realClazz);
             if (contentSerializer != null)
@@ -392,7 +358,7 @@ public class ZeSerializer implements ISerializer {
             else if (realClazz.getComponentType() != null)
                 return arraySerializer.read(sis, realClazz);
             else
-                return pojoSerializer.read(sis, realClazz);
+                return pojoSerializer.read(sis, realClazz, outer);
         }
 
         @Override
@@ -414,12 +380,12 @@ public class ZeSerializer implements ISerializer {
                 sos.write(objId.intValue());
                 return false;
             }
-
             if (val.getClass() == clazz) {
                 sos.write((byte) 1);
             } else {
                 sos.write((byte) 2);
                 sos.write(val.getClass().getName());
+                System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
             }
             return true;
         }
@@ -473,7 +439,7 @@ public class ZeSerializer implements ISerializer {
         public T read(SimpleInputStream sis) throws IOException {
             Collection instance = null;
             try {
-                instance = (Collection) instantiate(clazz);
+                instance = (Collection) instantiate(clazz, null);
             } catch (InstantiationException e) {
                 e.printStackTrace();
             } catch (IllegalAccessException e) {
