@@ -44,6 +44,8 @@ public class ZeSerializer implements ISerializer {
   public static final String FORCED_HEADER = "forced.header";
   public static final String USE_OBJENESIS = "use.objenesis";
   private Map<String, ?> parameters;
+  private Map<Object, Integer> knownObjects = new HashMap<>();
+  private List<Object> knownObjectList = new ArrayList<>();
 
   public ZeSerializer(Map<String, ?> parameters) {
     this.parameters = parameters;
@@ -107,8 +109,10 @@ public class ZeSerializer implements ISerializer {
         return f1.getName().compareTo(f2.getName());
       }
     });
-    for (Field field : declaredFields)
+    for (Field field : declaredFields) {
+      if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) == 0)
       fields.add(field);
+    }
     if (type.getSuperclass() != null)
       fields.addAll(getAllFields(type.getSuperclass()));
     return fields;
@@ -285,13 +289,20 @@ public class ZeSerializer implements ISerializer {
 
   private class FieldSerializer implements IFieldSerializer<Object> {
 
-    public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
+	public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
       if (!noHeader) {
         if (!clazz.isPrimitive())
           if (!writeHeader(object, clazz, sos))
             return;
       }
+      
       Class<? extends Object> actualClazz = object.getClass();
+      
+      if (!actualClazz.isPrimitive() && object != null && !knownObjects.containsKey(object)) {
+    	  knownObjectList.add(object);
+    	  knownObjects.put(object, knownObjectList.size());
+      }
+      
       @SuppressWarnings("unchecked")
       ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
       if (contentSerializer != null)
@@ -299,7 +310,7 @@ public class ZeSerializer implements ISerializer {
       else if (actualClazz.getComponentType() != null)
         arraySerializer.write(object, actualClazz, sos);
       else
-        pojoSerializer.write(object, actualClazz, sos);
+        pojoSerializer.write(object, actualClazz, sos);     
     }
 
     @Override
@@ -312,9 +323,26 @@ public class ZeSerializer implements ISerializer {
       Class<?> realClazz = clazz;
       if (!noHeader) {
         if (!clazz.isPrimitive()) {
-          realClazz = readHeader(sis, clazz);
-          if (realClazz == null)
+          // READ HEADER
+          byte hdr = sis.readByte();
+          if (hdr == 0)
             return null;
+          else if (hdr == 3) {
+        	  int objid = sis.readInt();
+        	  Object val = knownObjects.get(objid);
+        	  return val;
+          } else if (hdr == 1) {
+            // Nothing, realClazz = clazz
+          } else if (hdr == 2) {
+            try {
+            	realClazz = Class.forName(sis.readString());
+            } catch (ClassNotFoundException e) {
+              throw new RuntimeException(e);
+            }
+          } else {
+        	  throw new RuntimeException("Invalid hdr");
+        	  
+          }
         }
       }
 
@@ -329,7 +357,12 @@ public class ZeSerializer implements ISerializer {
 
     @Override
     public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
-      return read(sis, clazz, false);
+      Object object = read(sis, clazz, false);
+      if (!clazz.isPrimitive() && object != null && !knownObjects.containsKey(object)) {
+    	  knownObjectList.add(object);
+    	  knownObjects.put(object, knownObjectList.size());
+      }
+      return object;
     }
 
     // TODO: check and fix circular references
@@ -338,6 +371,14 @@ public class ZeSerializer implements ISerializer {
         sos.write((byte) 0);
         return false;
       }
+
+	  Integer objId = knownObjects.get(val);
+	  if (objId != null) {
+		sos.write((byte) 3);
+		sos.write(objId.intValue());
+		return false;
+	  }
+      
       if (val.getClass() == clazz) {
         sos.write((byte) 1);
       } else {
@@ -345,21 +386,6 @@ public class ZeSerializer implements ISerializer {
         sos.write(val.getClass().getName());
       }
       return true;
-    }
-
-    private Class<?> readHeader(SimpleInputStream sis, Class<?> clazz) throws IOException {
-      byte hdr = sis.readByte();
-      if (hdr == 0)
-        return null;
-      else if (hdr == 1)
-        return clazz;
-      else if (hdr == 2)
-        try {
-          return Class.forName(sis.readString());
-        } catch (ClassNotFoundException e) {
-          throw new RuntimeException(e);
-        }
-      throw new RuntimeException("Invalid hdr");
     }
 
   }
