@@ -9,7 +9,6 @@ import java.util.Iterator;
 import com.annimon.stream.Stream;
 import com.annimon.stream.function.Function;
 import com.annimon.stream.function.Supplier;
-import com.zakgof.db.velvet.IVelvetProvider;
 
 public class Functions {
 
