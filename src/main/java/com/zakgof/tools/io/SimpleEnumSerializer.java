@@ -12,12 +12,12 @@ public class SimpleEnumSerializer<T extends Enum<T>> implements ISimpleSerialize
 
 	@Override
 	public void write(SimpleOutputStream out, T val) throws IOException {
-		out.write(val.name());
+		out.write(val.ordinal());
 	}
 
 	@Override
 	public T read(SimpleInputStream in) throws IOException {
-		return T.valueOf(clazz, in.readString());
+		return clazz.getEnumConstants()[in.readInt()];
 	}
 
 }
