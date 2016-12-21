@@ -13,17 +13,18 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
 
+import com.annimon.stream.function.Consumer;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
 import com.zakgof.tools.io.ISimpleSerializer;
 import com.zakgof.tools.io.SimpleBooleanSerializer;
 import com.zakgof.tools.io.SimpleByteArraySerializer;
@@ -43,7 +44,7 @@ import com.zakgof.tools.io.SimpleStringSerializer;
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
-	public static final String COMPATIBLE_POJOS = "compatible.pojos";
+	// public static final String COMPATIBLE_POJOS = "compatible.pojos";
 	public static final String FORCED_HEADER = "forced.header";
 	public static final String USE_OBJENESIS = "use.objenesis";
 	private Map<String, ?> parameters;
@@ -52,7 +53,6 @@ public class ZeSerializer implements ISerializer {
 
 	public ZeSerializer(Map<String, ?> parameters) {
 		this.parameters = parameters;
-		initSerializers();
 		objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
 	}
 
@@ -70,7 +70,7 @@ public class ZeSerializer implements ISerializer {
 			serialize(object, baos);
 			return baos.toByteArray();
 		} catch (IOException e) {
-			throw new RuntimeException(e);
+			throw new ZeSerializerException(e);
 		} finally {
 			// long end = System.currentTimeMillis();
 			// Log.w("perf", "serialize " + object.getClass().getSimpleName() +
@@ -128,19 +128,26 @@ public class ZeSerializer implements ISerializer {
 		return fields;
 	}
 
-	private interface IFieldSerializer<T> {
-		void write(T object, Class<? extends T> clazz, SimpleOutputStream sos) throws IOException;
-
-		T read(SimpleInputStream sis, Class<? extends T> clazz) throws IOException;
+	private interface IFieldSerializer {
+		void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException;
+		Object read(SimpleInputStream sis, Class<?> clazz) throws IOException;
+	}
+	
+	private interface ICompositeSerializer<T> {
+		void write(T object, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException;
+		T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException;
 	}
 
 	private final FieldSerializer fieldSerializer = new FieldSerializer();
-	private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
+	private final IFieldSerializer arraySerializer = new ArraySerializer();
 	private final PojoSerializer pojoSerializer = new PojoSerializer();
 
-	private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<Class<?>, ISimpleSerializer<?>>();
+	private final static Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
+	private final static Map<Class<?>, ICompositeSerializer<?>> compositeSerializers = new HashMap<>();
+			
+	private final static BiMap<String, Byte> classes = HashBiMap.create();
 
-	private void initSerializers() {
+	static {
 		serializers.put(byte.class, SimpleByteSerializer.INSTANCE);
 		serializers.put(short.class, SimpleShortSerializer.INSTANCE);
 		serializers.put(int.class, SimpleIntegerSerializer.INSTANCE);
@@ -158,13 +165,19 @@ public class ZeSerializer implements ISerializer {
 		serializers.put(String.class, SimpleStringSerializer.INSTANCE);
 		serializers.put(Date.class, SimpleDateSerializer.INSTANCE);
 		serializers.put(byte[].class, SimpleByteArraySerializer.INSTANCE);
-		serializers.put(HashMap.class, new HashMapSerializer());
-		serializers.put(ArrayList.class, new CollectionSerializer<ArrayList>(ArrayList.class));
-		serializers.put(Map.class, new HashMapSerializer());
-		serializers.put(List.class, new CollectionSerializer<ArrayList>(ArrayList.class));
-		serializers.put(Set.class, new CollectionSerializer<HashSet>(HashSet.class));
-		serializers.put(HashSet.class, new CollectionSerializer<HashSet>(HashSet.class));
 		serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
+		
+		compositeSerializers.put(HashMap.class, new HashMapSerializer());
+		compositeSerializers.put(ArrayList.class, new CollectionSerializer<ArrayList<?>>());
+		compositeSerializers.put(HashSet.class, new CollectionSerializer<HashSet<?>>());
+		
+		classes.put("java.util.HashMap", (byte)1);
+		classes.put("java.util.ArrayList", (byte)2);
+		classes.put("java.util.RegularEnumSet", (byte)3);
+		classes.put("java.util.LinkedList", (byte)4);
+		classes.put("java.util.HashSet", (byte)5);
+		classes.put("java.util.TreeMap", (byte)6);
+		classes.put("java.util.TreeSet", (byte)7);
 	}
 
 	private Object instantiate(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
@@ -185,9 +198,7 @@ public class ZeSerializer implements ISerializer {
 	private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
 		try {
 			if (outer == null) {
-				Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
-				noArgConsructor.setAccessible(true);
-				return noArgConsructor.newInstance();
+				return instantiateUsingNoArgCtor(clazz);
 			} else {
 				Constructor<? extends Object> outerThisConsructor = clazz.getDeclaredConstructor(outer.getClass());  //TODO: different outer class
 				outerThisConsructor.setAccessible(true);
@@ -197,6 +208,20 @@ public class ZeSerializer implements ISerializer {
 			if (objenesis != null)
 				return objenesis.getInstantiatorOf(clazz).newInstance();
 			return clazz.newInstance();
+		}
+	}
+
+	private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws ReflectiveOperationException {
+		Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
+		noArgConsructor.setAccessible(true);
+		return noArgConsructor.newInstance();
+	}
+
+	private static Class<?> parseClassName(String className) {
+		try {
+			return Class.forName(className);
+		} catch (ClassNotFoundException e) {
+			throw new ZeSerializerException("Cannot find class " + className);
 		}
 	}
 
@@ -231,12 +256,11 @@ public class ZeSerializer implements ISerializer {
 			}
 		}
 	}
-
 	
-	private class ArraySerializer implements IFieldSerializer<Object> {
+	private class ArraySerializer implements IFieldSerializer {
 
 		@Override
-		public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+		public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
 			Object[] arr = (Object[]) object;
 			sos.write(arr.length);
 			for (int i = 0; i < arr.length; i++) {
@@ -246,7 +270,7 @@ public class ZeSerializer implements ISerializer {
 		}
 
 		@Override
-		public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+		public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
 			int length = sis.readInt();
 			if (length < 0)
 				throw new RuntimeException("Invalid array length");
@@ -263,7 +287,7 @@ public class ZeSerializer implements ISerializer {
 
 	}
 
-	private class FieldSerializer implements IFieldSerializer<Object> {
+	private class FieldSerializer implements IFieldSerializer {
 
 		@SuppressWarnings("unchecked")
 		public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
@@ -297,6 +321,11 @@ public class ZeSerializer implements ISerializer {
 				return;
 			}
 
+			ICompositeSerializer<Object> compositeSerializer = (ICompositeSerializer<Object>) compositeSerializers.get(actualClazz);
+			if (compositeSerializer != null) {
+				compositeSerializer.write(object, actualClazz, sos, fieldSerializer);
+				return;
+			}
 			ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
 			if (contentSerializer != null)
 				contentSerializer.write(sos, object);
@@ -325,14 +354,18 @@ public class ZeSerializer implements ISerializer {
 						return val;
 					} else if (hdr == 1) {
 						// Nothing, realClazz = clazz
+					} else if (hdr == 4) {
+						byte index = sis.readByte();
+						String className = classes.inverse().get(index);
+						if (className == null)
+							throw new ZeSerializerException("Unknown class id: " + index);
+						realClazz = parseClassName(className);
 					} else if (hdr == 2) {
-						try {
-							realClazz = Class.forName(sis.readString());
-						} catch (ClassNotFoundException e) {
-							throw new RuntimeException(e);
-						}
+						String className = sis.readString();
+						realClazz = parseClassName(className);
 					} else {
-						throw new RuntimeException("Invalid hdr");
+						throw new ZeSerializerException("Parsing error: invalid header value: " + hdr
+								+ " when parsing class " + clazz.getName());
 					}
 				}
 			}
@@ -350,11 +383,15 @@ public class ZeSerializer implements ISerializer {
 			return object;
 		}
 
+
 		@SuppressWarnings("unchecked")
 		private Object readObject(SimpleInputStream sis, Class<?> realClazz, Object outer) throws IOException {
 			if (realClazz.isEnum()) {
 				return new SimpleEnumSerializer(realClazz).read(sis);
 			}
+			ICompositeSerializer<Object> compositeSerializer = (ICompositeSerializer<Object>) compositeSerializers.get(realClazz);
+			if (compositeSerializer != null)
+				return compositeSerializer.read(sis, realClazz, fieldSerializer, ZeSerializer.this::rememberObject);
 			ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(realClazz);
 			if (contentSerializer != null)
 				return contentSerializer.read(sis);
@@ -386,19 +423,26 @@ public class ZeSerializer implements ISerializer {
 			if (val.getClass() == clazz) {
 				sos.write((byte) 1);
 			} else {
-				sos.write((byte) 2);
-				sos.write(val.getClass().getName());
-				System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
+				String clname = val.getClass().getName();
+				Byte index = classes.get(clname);
+				if (index == null) {
+					sos.write((byte) 2);				
+					sos.write(clname);
+					System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
+				} else {
+					sos.write((byte) 4);				
+					sos.write(index.byteValue());
+				}
 			}
 			return true;
 		}
 
 	}
 
-	private class HashMapSerializer implements ISimpleSerializer<HashMap<?, ?>> {
+	private static class HashMapSerializer implements ICompositeSerializer<HashMap<?, ?>> {
 
 		@Override
-		public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
+		public void write(HashMap<?, ?> object, Class<? extends HashMap<?, ?>> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
 			sos.write(object.size());
 			for (Entry<?, ?> e : object.entrySet()) {
 				fieldSerializer.write(e.getKey(), Object.class, sos);
@@ -408,8 +452,9 @@ public class ZeSerializer implements ISerializer {
 
 		@SuppressWarnings("unchecked")
 		@Override
-		public HashMap<?, ?> read(SimpleInputStream sis) throws IOException {
+		public HashMap<?, ?> read(SimpleInputStream sis, Class<? extends HashMap<?, ?>> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
 			HashMap hm = new HashMap();
+			rememberer.accept(hm);
 			int len = sis.readInt();
 			for (int i = 0; i < len; i++) {
 				Object key = fieldSerializer.read(sis, Object.class);
@@ -418,19 +463,18 @@ public class ZeSerializer implements ISerializer {
 			}
 			return hm;
 		}
-
 	}
 
-	private class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
+	private static class CollectionSerializer<T extends Collection> implements ICompositeSerializer<T> {
 
-		private final Class<T> clazz;
+		//private final Class<T> clazz;
 
-		CollectionSerializer(Class<T> clazz) {
-			this.clazz = clazz;
-		}
+		//CollectionSerializer(Class<T> clazz) {
+//			this.clazz = clazz;
+//		}
 
 		@Override
-		public void write(SimpleOutputStream sos, T val) throws IOException {
+		public void write(T val, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
 			sos.write(val.size());
 			for (Object element : val) {
 				fieldSerializer.write(element, Object.class, sos);
@@ -439,20 +483,13 @@ public class ZeSerializer implements ISerializer {
 
 		@SuppressWarnings("unchecked")
 		@Override
-		public T read(SimpleInputStream sis) throws IOException {
+		public T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
 			Collection instance = null;
 			try {
-				instance = (Collection) instantiate(clazz, null);
-			} catch (InstantiationException e) {
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (SecurityException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				instance = (Collection) instantiateUsingNoArgCtor(clazz);
+				rememberer.accept(instance);
 			} catch (ReflectiveOperationException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				throw new ZeSerializerException(e);
 			}
 			int len = sis.readInt();
 			for (int i = 0; i < len; i++) {
@@ -461,7 +498,6 @@ public class ZeSerializer implements ISerializer {
 			}
 			return (T) instance;
 		}
-
 	}
 
 	private static class Wrap {
