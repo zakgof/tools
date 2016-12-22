@@ -11,7 +11,7 @@ public class SimpleClassSerializer implements ISimpleSerializer<Class<?>> {
 
 	@Override
 	public void write(SimpleOutputStream out, Class<?> val) throws IOException {
-		out.write(val.getCanonicalName());
+		out.write(val.getName());
 	}
 
 	@Override
