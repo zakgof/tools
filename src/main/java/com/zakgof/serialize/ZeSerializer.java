@@ -19,6 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
@@ -467,17 +470,30 @@ public class ZeSerializer implements ISerializer {
 
 	private static class CollectionSerializer<T extends Collection> implements ICompositeSerializer<T> {
 
-		//private final Class<T> clazz;
-
-		//CollectionSerializer(Class<T> clazz) {
-//			this.clazz = clazz;
-//		}
-
 		@Override
 		public void write(T val, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
 			sos.write(val.size());
-			for (Object element : val) {
-				fieldSerializer.write(element, Object.class, sos);
+			// Optimization: same class
+			
+			long classesNum = (int) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().count();
+			if (classesNum < val.size() - 2) {
+				sos.write((byte)1);
+				List<Class<?>> classes = (List) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().collect(Collectors.toList());
+				Map<Class<?>, Integer> map = IntStream.range(0, classes.size()).boxed().collect(Collectors.toMap(classes::get, i -> i));
+				sos.write(classes.size());
+				for(Class cl : classes) {
+					sos.write(cl.getName());
+				}
+				for (Object element : val) {
+					sos.write(map.get(element.getClass()).intValue()); // TODO : optimize by size (byte/short/int !!!)
+					fieldSerializer.write(element, element.getClass(), sos);
+				}
+				
+			} else {
+				sos.write((byte)2);
+				for (Object element : val) {
+					fieldSerializer.write(element, Object.class, sos);
+				}
 			}
 		}
 
@@ -492,10 +508,27 @@ public class ZeSerializer implements ISerializer {
 				throw new ZeSerializerException(e);
 			}
 			int len = sis.readInt();
-			for (int i = 0; i < len; i++) {
-				Object value = fieldSerializer.read(sis, Object.class);
-				instance.add(value);
-			}
+			byte type = sis.readByte();
+			if (type == 2) {			
+				for (int i = 0; i < len; i++) {
+					Object value = fieldSerializer.read(sis, Object.class);
+					instance.add(value);
+				}
+			} else if (type == 1) {
+				int classesCount = sis.readInt();
+				Class[] classes = new Class[classesCount];
+				for (int i=0; i<classesCount; i++) {
+					classes[i] = parseClassName(sis.readString());
+				}
+				for (int i = 0; i < len; i++) {
+					int classIndex = sis.readInt();
+					Class<?> clazzz = classes[classIndex];
+					Object value = fieldSerializer.read(sis, clazzz);
+					instance.add(value);
+				}
+				
+			} else 
+				throw new ZeSerializerException("Wrong collection encoding type " + type);
 			return (T) instance;
 		}
 	}
