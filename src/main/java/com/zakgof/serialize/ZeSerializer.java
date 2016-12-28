@@ -42,480 +42,476 @@ import com.zakgof.tools.io.SimpleStringSerializer;
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
-	public static final String COMPATIBLE_POJOS = "compatible.pojos";
-	public static final String FORCED_HEADER = "forced.header";
-	public static final String USE_OBJENESIS = "use.objenesis";
-	private Map<String, ?> parameters;
-	private Map<Wrap, Integer> knownObjects = new HashMap<>();
-	private List<Object> knownObjectList = new ArrayList<>();
+    public static final String COMPATIBLE_POJOS = "compatible.pojos";
+    public static final String FORCED_HEADER = "forced.header";
+    public static final String USE_OBJENESIS = "use.objenesis";
+    private Map<String, ?> parameters;
+    private Map<Wrap, Integer> knownObjects = new HashMap<>();
+    private List<Object> knownObjectList = new ArrayList<>();
 
-	public ZeSerializer(Map<String, ?> parameters) {
-		this.parameters = parameters;
-		initSerializers();
-		pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer()
-				: new PojoSerializer();
-		objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
-	}
+    public ZeSerializer(Map<String, ?> parameters) {
+        this.parameters = parameters;
+        initSerializers();
+        pojoSerializer = (parameters.get(COMPATIBLE_POJOS) != null) ? new CompatiblePojoSerializer() : new PojoSerializer();
+        objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
+    }
 
-	public ZeSerializer() {
-		this(new HashMap<>());
-	}
+    public ZeSerializer() {
+        this(new HashMap<>());
+    }
 
-	private final Objenesis objenesis;
+    private final Objenesis objenesis;
 
-	@Override
-	public byte[] serialize(Object object) {
-		// long start = System.currentTimeMillis();
-		try {
-			ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
-			serialize(object, baos);
-			return baos.toByteArray();
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			// long end = System.currentTimeMillis();
-			// Log.w("perf", "serialize " + object.getClass().getSimpleName() +
-			// " in "
-			// + (end-start));
-		}
-	}
+    @Override
+    public byte[] serialize(Object object) {
+        // long start = System.currentTimeMillis();
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
+            serialize(object, baos);
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            // long end = System.currentTimeMillis();
+            // Log.w("perf", "serialize " + object.getClass().getSimpleName() +
+            // " in "
+            // + (end-start));
+        }
+    }
 
-	public void serialize(Object object, OutputStream os) throws IOException {
-		try {
-			SimpleOutputStream sos = new SimpleOutputStream(os);
-			boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-			fieldSerializer.write(object, object.getClass(), sos, hoHeader);
-		} finally {
-			knownObjectList.clear();
-			knownObjects.clear();
-		}
-	}
+    public void serialize(Object object, OutputStream os) throws IOException {
+        try {
+            SimpleOutputStream sos = new SimpleOutputStream(os);
+            boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
+            fieldSerializer.write(object, object.getClass(), sos, hoHeader);
+        } finally {
+            knownObjectList.clear();
+            knownObjects.clear();
+        }
+    }
 
-	@SuppressWarnings("unchecked")
-	@Override
-	public <T> T deserialize(InputStream is, Class<T> clazz) {
-		// long start = System.currentTimeMillis();
-		try {
-			SimpleInputStream sis = new SimpleInputStream(is);
-			boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-			return (T) fieldSerializer.read(sis, clazz, hoHeader);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			// long end = System.currentTimeMillis();
-			// Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " +
-			// (end-start));
-			knownObjectList.clear();
-			knownObjects.clear();
-		}
-	}
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T deserialize(InputStream is, Class<T> clazz) {
+        // long start = System.currentTimeMillis();
+        try {
+            SimpleInputStream sis = new SimpleInputStream(is);
+            boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
+            return (T) fieldSerializer.read(sis, clazz, hoHeader);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            // long end = System.currentTimeMillis();
+            // Log.w("perf", "deserialize " + clazz.getSimpleName() + " in " +
+            // (end-start));
+            knownObjectList.clear();
+            knownObjects.clear();
+        }
+    }
 
-	public static List<Field> getAllFields(Class<?> type) {
-		List<Field> fields = new ArrayList<>();
+    public static List<Field> getAllFields(Class<?> type) {
+        List<Field> fields = new ArrayList<>();
 
-		Field[] declaredFields = type.getDeclaredFields();
-		Arrays.sort(declaredFields, new Comparator<Field>() {
-			@Override
-			public int compare(Field f1, Field f2) {
-				return f1.getName().compareTo(f2.getName());
-			}
-		});
-		for (Field field : declaredFields) {
-			if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) == 0)
-				fields.add(field);
-		}
-		if (type.getSuperclass() != null)
-			fields.addAll(getAllFields(type.getSuperclass()));
-		return fields;
-	}
+        Field[] declaredFields = type.getDeclaredFields();
+        Arrays.sort(declaredFields, new Comparator<Field>() {
+            @Override
+            public int compare(Field f1, Field f2) {
+                return f1.getName().compareTo(f2.getName());
+            }
+        });
+        for (Field field : declaredFields) {
+            if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) == 0)
+                fields.add(field);
+        }
+        if (type.getSuperclass() != null)
+            fields.addAll(getAllFields(type.getSuperclass()));
+        return fields;
+    }
 
-	private interface IFieldSerializer<T> {
-		void write(T object, Class<? extends T> clazz, SimpleOutputStream sos) throws IOException;
+    private interface IFieldSerializer<T> {
+        void write(T object, Class<? extends T> clazz, SimpleOutputStream sos) throws IOException;
 
-		T read(SimpleInputStream sis, Class<? extends T> clazz) throws IOException;
-	}
+        T read(SimpleInputStream sis, Class<? extends T> clazz) throws IOException;
+    }
 
-	private final FieldSerializer fieldSerializer = new FieldSerializer();
-	private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
-	private final IFieldSerializer<Object> pojoSerializer;
+    private final FieldSerializer fieldSerializer = new FieldSerializer();
+    private final IFieldSerializer<Object> arraySerializer = new ArraySerializer();
+    private final IFieldSerializer<Object> pojoSerializer;
 
-	private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
+    private final Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
 
-	private void initSerializers() {
-		serializers.put(byte.class, SimpleByteSerializer.INSTANCE);
-		serializers.put(short.class, SimpleShortSerializer.INSTANCE);
-		serializers.put(int.class, SimpleIntegerSerializer.INSTANCE);
-		serializers.put(long.class, SimpleLongSerializer.INSTANCE);
-		serializers.put(float.class, SimpleFloatSerializer.INSTANCE);
-		serializers.put(double.class, SimpleDoubleSerializer.INSTANCE);
-		serializers.put(boolean.class, SimpleBooleanSerializer.INSTANCE);
-		serializers.put(Byte.class, SimpleByteSerializer.INSTANCE);
-		serializers.put(Short.class, SimpleShortSerializer.INSTANCE);
-		serializers.put(Integer.class, SimpleIntegerSerializer.INSTANCE);
-		serializers.put(Long.class, SimpleLongSerializer.INSTANCE);
-		serializers.put(Float.class, SimpleFloatSerializer.INSTANCE);
-		serializers.put(Double.class, SimpleDoubleSerializer.INSTANCE);
-		serializers.put(Boolean.class, SimpleBooleanSerializer.INSTANCE);
-		serializers.put(String.class, SimpleStringSerializer.INSTANCE);
-		serializers.put(Date.class, SimpleDateSerializer.INSTANCE);
-		serializers.put(byte[].class, SimpleByteArraySerializer.INSTANCE);
-		serializers.put(HashMap.class, new HashMapSerializer());
-		serializers.put(ArrayList.class, new CollectionSerializer<>(ArrayList.class));
-		serializers.put(Map.class, new HashMapSerializer());
-		serializers.put(List.class, new CollectionSerializer<>(ArrayList.class));
-		serializers.put(Set.class, new CollectionSerializer<>(HashSet.class));
-		serializers.put(HashSet.class, new CollectionSerializer<>(HashSet.class));
-		serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
-	}
+    private void initSerializers() {
+        serializers.put(byte.class, SimpleByteSerializer.INSTANCE);
+        serializers.put(short.class, SimpleShortSerializer.INSTANCE);
+        serializers.put(int.class, SimpleIntegerSerializer.INSTANCE);
+        serializers.put(long.class, SimpleLongSerializer.INSTANCE);
+        serializers.put(float.class, SimpleFloatSerializer.INSTANCE);
+        serializers.put(double.class, SimpleDoubleSerializer.INSTANCE);
+        serializers.put(boolean.class, SimpleBooleanSerializer.INSTANCE);
+        serializers.put(Byte.class, SimpleByteSerializer.INSTANCE);
+        serializers.put(Short.class, SimpleShortSerializer.INSTANCE);
+        serializers.put(Integer.class, SimpleIntegerSerializer.INSTANCE);
+        serializers.put(Long.class, SimpleLongSerializer.INSTANCE);
+        serializers.put(Float.class, SimpleFloatSerializer.INSTANCE);
+        serializers.put(Double.class, SimpleDoubleSerializer.INSTANCE);
+        serializers.put(Boolean.class, SimpleBooleanSerializer.INSTANCE);
+        serializers.put(String.class, SimpleStringSerializer.INSTANCE);
+        serializers.put(Date.class, SimpleDateSerializer.INSTANCE);
+        serializers.put(byte[].class, SimpleByteArraySerializer.INSTANCE);
+        serializers.put(HashMap.class, new HashMapSerializer());
+        serializers.put(ArrayList.class, new CollectionSerializer<>(ArrayList.class));
+        serializers.put(Map.class, new HashMapSerializer());
+        serializers.put(List.class, new CollectionSerializer<>(ArrayList.class));
+        serializers.put(Set.class, new CollectionSerializer<>(HashSet.class));
+        serializers.put(HashSet.class, new CollectionSerializer<>(HashSet.class));
+        serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
+    }
 
-	private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
-		Object instance = createObject(clazz);
-		if (!clazz.isPrimitive()) {
-			rememberObject(instance);
-		}
-		return instance;
-	}
+    private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
+        Object instance = createObject(clazz);
+        if (!clazz.isPrimitive()) {
+            rememberObject(instance);
+        }
+        return instance;
+    }
 
-	private void rememberObject(Object instance) {
-		if (!knownObjects.containsKey(new Wrap(instance))) {
-			knownObjectList.add(instance);
-			knownObjects.put(new Wrap(instance), knownObjectList.size() - 1);
-		}
-	}
+    private void rememberObject(Object instance) {
+        if (!knownObjects.containsKey(new Wrap(instance))) {
+            knownObjectList.add(instance);
+            knownObjects.put(new Wrap(instance), knownObjectList.size() - 1);
+        }
+    }
 
-	private Object createObject(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
-		try {
-			Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
-			noArgConsructor.setAccessible(true);
-			return noArgConsructor.newInstance();
-		} catch (NoSuchMethodException e) {
-			if (objenesis != null)
-				return objenesis.getInstantiatorOf(clazz).newInstance();
-			return clazz.newInstance();
-		}
-	}
+    private Object createObject(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
+        try {
+            Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
+            noArgConsructor.setAccessible(true);
+            return noArgConsructor.newInstance();
+        } catch (NoSuchMethodException e) {
+            if (objenesis != null)
+                return objenesis.getInstantiatorOf(clazz).newInstance();
+            return clazz.newInstance();
+        }
+    }
 
-	private class PojoSerializer implements IFieldSerializer<Object> {
+    private class PojoSerializer implements IFieldSerializer<Object> {
 
-		@Override
-		public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
-			try {
-				for (Field field : getAllFields(clazz)) {
-					if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-						field.setAccessible(true);
-						fieldSerializer.write(field.get(object), field.getType(), sos);
-					}
-				}
-			} catch (IllegalAccessException e) {
-				throw new RuntimeException(e);
-			}
-		}
+        @Override
+        public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+            try {
+                for (Field field : getAllFields(clazz)) {
+                    if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+                        field.setAccessible(true);
+                        fieldSerializer.write(field.get(object), field.getType(), sos);
+                    }
+                }
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-		@Override
-		public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
-			try {
-				Object object = instantiate(clazz);	
-				for (Field field : getAllFields(clazz)) {
-					if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-						field.setAccessible(true);
-						Object value = fieldSerializer.read(sis, field.getType());
-						field.set(object, value);
-					}
-				}
-				return object;
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
+        @Override
+        public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+            try {
+                Object object = instantiate(clazz);
+                for (Field field : getAllFields(clazz)) {
+                    if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+                        field.setAccessible(true);
+                        Object value = fieldSerializer.read(sis, field.getType());
+                        field.set(object, value);
+                    }
+                }
+                return object;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 
-	private class CompatiblePojoSerializer implements IFieldSerializer<Object> {
+    private class CompatiblePojoSerializer implements IFieldSerializer<Object> {
 
-		@Override
-		public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
-			try {
-				sos.write(getAllFields(clazz).size());
-				for (Field field : getAllFields(clazz)) {
-					if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-						field.setAccessible(true);
-						sos.write(field.getName());
-						fieldSerializer.write(field.get(object), Object.class, sos);
-					}
-				}
-			} catch (IllegalAccessException e) {
-				throw new RuntimeException(e);
-			}
-		}
+        @Override
+        public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+            try {
+                sos.write(getAllFields(clazz).size());
+                for (Field field : getAllFields(clazz)) {
+                    if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+                        field.setAccessible(true);
+                        sos.write(field.getName());
+                        fieldSerializer.write(field.get(object), Object.class, sos);
+                    }
+                }
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-		@Override
-		public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
-			try {
-				Object object = instantiate(clazz);
-				Integer fieldCount = sis.readInt();
+        @Override
+        public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+            try {
+                Object object = instantiate(clazz);
+                Integer fieldCount = sis.readInt();
 
-				for (int i = 0; i < fieldCount; i++) {
-					String name = sis.readString();
-					Object fieldValue = fieldSerializer.read(sis, Object.class);
-					if (!assignFieldValue(clazz, object, name, fieldValue))
-						System.err.println(
-								"field" + name + " with value " + fieldValue + " not found in the class " + clazz);
-				}
+                for (int i = 0; i < fieldCount; i++) {
+                    String name = sis.readString();
+                    Object fieldValue = fieldSerializer.read(sis, Object.class);
+                    if (!assignFieldValue(clazz, object, name, fieldValue))
+                        System.err.println("field" + name + " with value " + fieldValue + " not found in the class " + clazz);
+                }
 
-				return object;
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+                return object;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-		private boolean assignFieldValue(Class<? extends Object> clazz, Object object, String name, Object fieldValue)
-				throws IllegalAccessException {
-			for (Field field : getAllFields(clazz)) {
-				if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-					if (field.getName().equals(name)) {
-						field.setAccessible(true);
-						if (fieldValue == null || field.getType().isAssignableFrom(fieldValue.getClass()))
-							field.set(object, fieldValue);
-						else
-							System.err.println("Field " + field.getName() + " from " + clazz
-									+ " cannot be assigned the value " + fieldValue);
-						return true;
-					}
-				}
-			}
-			return false;
-		}
+        private boolean assignFieldValue(Class<? extends Object> clazz, Object object, String name, Object fieldValue) throws IllegalAccessException {
+            for (Field field : getAllFields(clazz)) {
+                if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
+                    if (field.getName().equals(name)) {
+                        field.setAccessible(true);
+                        if (fieldValue == null || field.getType().isAssignableFrom(fieldValue.getClass()))
+                            field.set(object, fieldValue);
+                        else
+                            System.err.println("Field " + field.getName() + " from " + clazz + " cannot be assigned the value " + fieldValue);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
-	}
+    }
 
-	private class ArraySerializer implements IFieldSerializer<Object> {
+    private class ArraySerializer implements IFieldSerializer<Object> {
 
-		@Override
-		public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
-			Object[] arr = (Object[]) object;
-			sos.write(arr.length);
-			for (int i = 0; i < arr.length; i++) {
-				Object val = arr[i];
-				fieldSerializer.write(val, clazz.getComponentType(), sos);
-			}
-		}
+        @Override
+        public void write(Object object, Class<? extends Object> clazz, SimpleOutputStream sos) throws IOException {
+            Object[] arr = (Object[]) object;
+            sos.write(arr.length);
+            for (int i = 0; i < arr.length; i++) {
+                Object val = arr[i];
+                fieldSerializer.write(val, clazz.getComponentType(), sos);
+            }
+        }
 
-		@Override
-		public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
-			int length = sis.readInt();
-			if (length < 0)
-				throw new RuntimeException("Invalid array length");
-			Class<?> componentType = clazz.getComponentType();
-			Object[] instance = (Object[]) Array.newInstance(componentType, length);
-			rememberObject(instance);
+        @Override
+        public Object read(SimpleInputStream sis, Class<? extends Object> clazz) throws IOException {
+            int length = sis.readInt();
+            if (length < 0)
+                throw new RuntimeException("Invalid array length");
+            Class<?> componentType = clazz.getComponentType();
+            Object[] instance = (Object[]) Array.newInstance(componentType, length);
+            rememberObject(instance);
 
-			for (int i = 0; i < length; i++) {
-				Object read = fieldSerializer.read(sis, componentType);
-				instance[i] = read;
-			}
-			return instance;
-		}
+            for (int i = 0; i < length; i++) {
+                Object read = fieldSerializer.read(sis, componentType);
+                instance[i] = read;
+            }
+            return instance;
+        }
 
-	}
+    }
 
-	private class FieldSerializer implements IFieldSerializer<Object> {
+    private class FieldSerializer implements IFieldSerializer<Object> {
 
-		@SuppressWarnings("unchecked")
-		public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
-			if (!noHeader) {
-				if (!clazz.isPrimitive())
-					if (!writeHeader(object, clazz, sos))
-						return;
-			}
+        @SuppressWarnings("unchecked")
+        public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
+            if (!noHeader) {
+                if (!clazz.isPrimitive())
+                    if (!writeHeader(object, clazz, sos))
+                        return;
+            }
 
-			Class<? extends Object> actualClazz = object.getClass();
+            Class<? extends Object> actualClazz = object.getClass();
 
-			if (!clazz.isPrimitive())
-				rememberObject(object);
+            if (!clazz.isPrimitive())
+                rememberObject(object);
 
-			if (clazz.isEnum()) {
-				new SimpleEnumSerializer(clazz).write(sos, (Enum) object);
-				return;
-			}
+            if (clazz.isEnum()) {
+                new SimpleEnumSerializer(clazz).write(sos, (Enum) object);
+                return;
+            }
 
-			ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
-			if (contentSerializer != null)
-				contentSerializer.write(sos, object);
-			else if (actualClazz.getComponentType() != null)
-				arraySerializer.write(object, actualClazz, sos);
-			else
-				pojoSerializer.write(object, actualClazz, sos);
-		}
+            ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(actualClazz);
+            if (contentSerializer != null)
+                contentSerializer.write(sos, object);
+            else if (actualClazz.getComponentType() != null)
+                arraySerializer.write(object, actualClazz, sos);
+            else
+                pojoSerializer.write(object, actualClazz, sos);
+        }
 
-		@Override
-		public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-			write(object, clazz, sos, false);
-		}
+        @Override
+        public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
+            write(object, clazz, sos, false);
+        }
 
-		public Object read(SimpleInputStream sis, Class<?> clazz, boolean noHeader) throws IOException {
-			Class<?> realClazz = clazz;
-			if (!noHeader) {
-				if (!clazz.isPrimitive()) {
-					// READ HEADER
-					byte hdr = sis.readByte();
-					if (hdr == 0)
-						return null;
-					else if (hdr == 3) {
-						int objid = sis.readInt();
-						Object val = knownObjectList.get(objid);
-						return val;
-					} else if (hdr == 1) {
-						// Nothing, realClazz = clazz
-					} else if (hdr == 2) {
-						try {
-							realClazz = Class.forName(sis.readString());
-						} catch (ClassNotFoundException e) {
-							throw new RuntimeException(e);
-						}
-					} else {
-						throw new RuntimeException("Invalid hdr");
+        public Object read(SimpleInputStream sis, Class<?> clazz, boolean noHeader) throws IOException {
+            Class<?> realClazz = clazz;
+            if (!noHeader) {
+                if (!clazz.isPrimitive()) {
+                    // READ HEADER
+                    byte hdr = sis.readByte();
+                    if (hdr == 0)
+                        return null;
+                    else if (hdr == 3) {
+                        int objid = sis.readInt();
+                        Object val = knownObjectList.get(objid);
+                        return val;
+                    } else if (hdr == 1) {
+                        // Nothing, realClazz = clazz
+                    } else if (hdr == 2) {
+                        try {
+                            realClazz = Class.forName(sis.readString());
+                        } catch (ClassNotFoundException e) {
+                            throw new RuntimeException(e);
+                        }
+                    } else {
+                        throw new RuntimeException("Invalid hdr");
 
-					}
-				}
-			}
+                    }
+                }
+            }
 
-			Object object = readObject(sis, clazz, realClazz);
-			if (!realClazz.isPrimitive()) {
-				rememberObject(object);
-			}
-			return object;
-		}
+            Object object = readObject(sis, clazz, realClazz);
+            if (!realClazz.isPrimitive()) {
+                rememberObject(object);
+            }
+            return object;
+        }
 
-		@SuppressWarnings("unchecked")
-		private Object readObject(SimpleInputStream sis, Class<?> clazz, Class<?> realClazz) throws IOException {
-			if (clazz.isEnum()) {
-				return new SimpleEnumSerializer(clazz).read(sis);
-			}
-			ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(realClazz);
-			if (contentSerializer != null)
-				return contentSerializer.read(sis);
-			else if (realClazz.getComponentType() != null)
-				return arraySerializer.read(sis, realClazz);
-			else
-				return pojoSerializer.read(sis, realClazz);
-		}
+        @SuppressWarnings("unchecked")
+        private Object readObject(SimpleInputStream sis, Class<?> clazz, Class<?> realClazz) throws IOException {
+            if (clazz.isEnum()) {
+                return new SimpleEnumSerializer(clazz).read(sis);
+            }
+            ISimpleSerializer<Object> contentSerializer = (ISimpleSerializer<Object>) serializers.get(realClazz);
+            if (contentSerializer != null)
+                return contentSerializer.read(sis);
+            else if (realClazz.getComponentType() != null)
+                return arraySerializer.read(sis, realClazz);
+            else
+                return pojoSerializer.read(sis, realClazz);
+        }
 
-		@Override
-		public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
-			Object object = read(sis, clazz, false);
-			return object;
-		}
+        @Override
+        public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
+            Object object = read(sis, clazz, false);
+            return object;
+        }
 
-		// TODO: check and fix circular references
-		private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-			if (val == null) {
-				sos.write((byte) 0);
-				return false;
-			}
+        // TODO: check and fix circular references
+        private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
+            if (val == null) {
+                sos.write((byte) 0);
+                return false;
+            }
 
-			Integer objId = knownObjects.get(new Wrap(val));
-			if (objId != null) {
-				sos.write((byte) 3);
-				sos.write(objId.intValue());
-				return false;
-			}
+            Integer objId = knownObjects.get(new Wrap(val));
+            if (objId != null) {
+                sos.write((byte) 3);
+                sos.write(objId.intValue());
+                return false;
+            }
 
-			if (val.getClass() == clazz) {
-				sos.write((byte) 1);
-			} else {
-				sos.write((byte) 2);
-				sos.write(val.getClass().getName());
-			}
-			return true;
-		}
+            if (val.getClass() == clazz) {
+                sos.write((byte) 1);
+            } else {
+                sos.write((byte) 2);
+                sos.write(val.getClass().getName());
+            }
+            return true;
+        }
 
-	}
+    }
 
-	private class HashMapSerializer implements ISimpleSerializer<HashMap<?, ?>> {
+    private class HashMapSerializer implements ISimpleSerializer<HashMap<?, ?>> {
 
-		@Override
-		public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
-			sos.write(object.size());
-			for (Entry<?, ?> e : object.entrySet()) {
-				fieldSerializer.write(e.getKey(), Object.class, sos);
-				fieldSerializer.write(e.getValue(), Object.class, sos);
-			}
-		}
+        @Override
+        public void write(SimpleOutputStream sos, HashMap<?, ?> object) throws IOException {
+            sos.write(object.size());
+            for (Entry<?, ?> e : object.entrySet()) {
+                fieldSerializer.write(e.getKey(), Object.class, sos);
+                fieldSerializer.write(e.getValue(), Object.class, sos);
+            }
+        }
 
-		@SuppressWarnings("unchecked")
-		@Override
-		public HashMap<?, ?> read(SimpleInputStream sis) throws IOException {
-			HashMap hm = new HashMap();
-			int len = sis.readInt();
-			for (int i = 0; i < len; i++) {
-				Object key = fieldSerializer.read(sis, Object.class);
-				Object value = fieldSerializer.read(sis, Object.class);
-				hm.put(key, value);
-			}
-			return hm;
-		}
+        @SuppressWarnings("unchecked")
+        @Override
+        public HashMap<?, ?> read(SimpleInputStream sis) throws IOException {
+            HashMap hm = new HashMap();
+            int len = sis.readInt();
+            for (int i = 0; i < len; i++) {
+                Object key = fieldSerializer.read(sis, Object.class);
+                Object value = fieldSerializer.read(sis, Object.class);
+                hm.put(key, value);
+            }
+            return hm;
+        }
 
-	}
+    }
 
-	private class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
+    private class CollectionSerializer<T extends Collection> implements ISimpleSerializer<T> {
 
-		private final Class<T> clazz;
+        private final Class<T> clazz;
 
-		CollectionSerializer(Class<T> clazz) {
-			this.clazz = clazz;
-		}
+        CollectionSerializer(Class<T> clazz) {
+            this.clazz = clazz;
+        }
 
-		@Override
-		public void write(SimpleOutputStream sos, T val) throws IOException {
-			sos.write(val.size());
-			for (Object element : val) {
-				fieldSerializer.write(element, Object.class, sos);
-			}
-		}
+        @Override
+        public void write(SimpleOutputStream sos, T val) throws IOException {
+            sos.write(val.size());
+            for (Object element : val) {
+                fieldSerializer.write(element, Object.class, sos);
+            }
+        }
 
-		@SuppressWarnings("unchecked")
-		@Override
-		public T read(SimpleInputStream sis) throws IOException {
-			Collection instance = null;
-			try {
-				instance = (Collection) instantiate(clazz);
-			} catch (InstantiationException e) {
-				e.printStackTrace();
-			} catch (IllegalAccessException e) {
-				e.printStackTrace();
-			} catch (SecurityException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (ReflectiveOperationException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			int len = sis.readInt();
-			for (int i = 0; i < len; i++) {
-				Object value = fieldSerializer.read(sis, Object.class);
-				instance.add(value);
-			}
-			return (T) instance;
-		}
+        @SuppressWarnings("unchecked")
+        @Override
+        public T read(SimpleInputStream sis) throws IOException {
+            Collection instance = null;
+            try {
+                instance = (Collection) instantiate(clazz);
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (SecurityException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (ReflectiveOperationException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            int len = sis.readInt();
+            for (int i = 0; i < len; i++) {
+                Object value = fieldSerializer.read(sis, Object.class);
+                instance.add(value);
+            }
+            return (T) instance;
+        }
 
-	}
+    }
 
-	private static class Wrap {
+    private static class Wrap {
 
-		private Object object;
+        private Object object;
 
-		public Wrap(Object object) {
-			this.object = object;
-		}
+        public Wrap(Object object) {
+            this.object = object;
+        }
 
-		@Override
-		public int hashCode() {
-			return System.identityHashCode(object) + 5;
-		}
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(object) + 5;
+        }
 
-		@Override
-		public boolean equals(Object that) {
-			return this.object == ((Wrap) that).object;
-		}
+        @Override
+        public boolean equals(Object that) {
+            return this.object == ((Wrap) that).object;
+        }
 
-	}
+    }
 }
