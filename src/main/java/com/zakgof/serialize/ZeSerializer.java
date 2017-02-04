@@ -431,7 +431,7 @@ public class ZeSerializer implements ISerializer {
 				if (index == null) {
 					sos.write((byte) 2);				
 					sos.write(clname);
-					System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
+					// System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
 				} else {
 					sos.write((byte) 4);				
 					sos.write(index.byteValue());
