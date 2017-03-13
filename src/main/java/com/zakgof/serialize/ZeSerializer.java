@@ -474,8 +474,8 @@ public class ZeSerializer implements ISerializer {
 		public void write(T val, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
 			sos.write(val.size());
 			// Optimization: same class
-			
-			long classesNum = (int) Stream.<T>of((Collection<T>)val).filter(o -> o != null).map(Object::getClass).distinct().count();
+
+			long classesNum = (int) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().count();
 			if (classesNum < val.size() - 2) {
 				sos.write((byte)1);
 				@SuppressWarnings("unchecked")
