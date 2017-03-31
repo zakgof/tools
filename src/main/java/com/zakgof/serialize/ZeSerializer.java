@@ -53,17 +53,15 @@ public class ZeSerializer implements ISerializer {
 	private Map<String, ?> parameters;
 	private Map<Wrap, Integer> knownObjects = new HashMap<>();
 	private List<Object> knownObjectList = new ArrayList<>();
+	private static final Objenesis objenesis = new ObjenesisStd();
 
 	public ZeSerializer(Map<String, ?> parameters) {
 		this.parameters = parameters;
-		objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
 	}
 
 	public ZeSerializer() {
 		this(new HashMap<>());
 	}
-
-	private final Objenesis objenesis;
 
 	@Override
 	public byte[] serialize(Object object) {
@@ -135,7 +133,7 @@ public class ZeSerializer implements ISerializer {
 		void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException;
 		Object read(SimpleInputStream sis, Class<?> clazz) throws IOException;
 	}
-	
+
 	private interface ICompositeSerializer<T> {
 		void write(T object, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException;
 		T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException;
@@ -147,7 +145,7 @@ public class ZeSerializer implements ISerializer {
 
 	private final static Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
 	private final static Map<Class<?>, ICompositeSerializer<?>> compositeSerializers = new HashMap<>();
-			
+
 	private final static BiMap<String, Byte> classes = HashBiMap.create();
 
 	static {
@@ -169,11 +167,11 @@ public class ZeSerializer implements ISerializer {
 		serializers.put(Date.class, SimpleDateSerializer.INSTANCE);
 		serializers.put(byte[].class, SimpleByteArraySerializer.INSTANCE);
 		serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
-		
+
 		compositeSerializers.put(HashMap.class, new HashMapSerializer());
 		compositeSerializers.put(ArrayList.class, new CollectionSerializer<ArrayList<?>>());
 		compositeSerializers.put(HashSet.class, new CollectionSerializer<HashSet<?>>());
-		
+
 		classes.put("java.util.HashMap", (byte)1);
 		classes.put("java.util.ArrayList", (byte)2);
 		classes.put("java.util.RegularEnumSet", (byte)3);
@@ -245,7 +243,7 @@ public class ZeSerializer implements ISerializer {
 
 		public Object read(SimpleInputStream sis, Class<? extends Object> clazz, Object outer) throws IOException {
 			try {
-				Object object = instantiate(clazz, outer);	
+				Object object = instantiate(clazz, outer);
 				for (Field field : getAllFields(clazz)) {
 					if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
 						field.setAccessible(true);
@@ -259,7 +257,7 @@ public class ZeSerializer implements ISerializer {
 			}
 		}
 	}
-	
+
 	private class ArraySerializer implements IFieldSerializer {
 
 		@Override
@@ -301,7 +299,7 @@ public class ZeSerializer implements ISerializer {
 			}
 
 			Class<? extends Object> actualClazz = object.getClass();
-			
+
 			if (object.getClass().getEnclosingClass() != null && (object.getClass().getModifiers() & Modifier.STATIC) == 0) {
 				Object outer = null;
 				try {
@@ -314,7 +312,7 @@ public class ZeSerializer implements ISerializer {
 					e.printStackTrace();
 				}
 			}
-			
+
 
 			if (!clazz.isPrimitive())
 				rememberObject(object);
@@ -372,7 +370,7 @@ public class ZeSerializer implements ISerializer {
 					}
 				}
 			}
-			
+
 			Object outer = null;
 			if (realClazz.getEnclosingClass() != null && (realClazz.getModifiers() & Modifier.STATIC) == 0) {
 				outer = read(sis, realClazz.getDeclaringClass());
@@ -422,18 +420,18 @@ public class ZeSerializer implements ISerializer {
 				sos.write((byte) 3);
 				sos.write(objId.intValue());
 				return false;
-			}			
+			}
 			if (val.getClass() == clazz) {
 				sos.write((byte) 1);
 			} else {
 				String clname = val.getClass().getName();
 				Byte index = classes.get(clname);
 				if (index == null) {
-					sos.write((byte) 2);				
+					sos.write((byte) 2);
 					sos.write(clname);
 					System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
 				} else {
-					sos.write((byte) 4);				
+					sos.write((byte) 4);
 					sos.write(index.byteValue());
 				}
 			}
@@ -474,7 +472,7 @@ public class ZeSerializer implements ISerializer {
 		public void write(T val, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
 			sos.write(val.size());
 			// Optimization: same class
-			
+
 			long classesNum = (int) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().count();
 			if (classesNum < val.size() - 2) {
 				sos.write((byte)1);
@@ -488,7 +486,7 @@ public class ZeSerializer implements ISerializer {
 					sos.write(map.get(element.getClass()).intValue()); // TODO : optimize by size (byte/short/int !!!)
 					fieldSerializer.write(element, element.getClass(), sos);
 				}
-				
+
 			} else {
 				sos.write((byte)2);
 				for (Object element : val) {
@@ -509,7 +507,7 @@ public class ZeSerializer implements ISerializer {
 			}
 			int len = sis.readInt();
 			byte type = sis.readByte();
-			if (type == 2) {			
+			if (type == 2) {
 				for (int i = 0; i < len; i++) {
 					Object value = fieldSerializer.read(sis, Object.class);
 					instance.add(value);
@@ -526,8 +524,8 @@ public class ZeSerializer implements ISerializer {
 					Object value = fieldSerializer.read(sis, clazzz);
 					instance.add(value);
 				}
-				
-			} else 
+
+			} else
 				throw new ZeSerializerException("Wrong collection encoding type " + type);
 			return (T) instance;
 		}
