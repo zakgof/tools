@@ -199,19 +199,9 @@ public class ZeSerializer implements ISerializer {
     }
 
     private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
-        try {
-            if (outer == null) {
-                return instantiateUsingNoArgCtor(clazz);
-            } else {
-                Constructor<? extends Object> outerThisConsructor = clazz.getDeclaredConstructor(outer.getClass()); // TODO: different outer class
-                outerThisConsructor.setAccessible(true);
-                return outerThisConsructor.newInstance(outer);
-            }
-        } catch (NoSuchMethodException e) {
-            if (objenesis != null)
-                return objenesis.getInstantiatorOf(clazz).newInstance();
-            return clazz.newInstance();
-        }
+        if (objenesis != null)
+            return objenesis.getInstantiatorOf(clazz).newInstance();
+        return clazz.newInstance();
     }
 
     private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws ReflectiveOperationException {
