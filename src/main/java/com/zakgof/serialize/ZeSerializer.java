@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -206,11 +207,13 @@ public class ZeSerializer implements ISerializer {
         return clazz.newInstance();
     }
 
-    private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws ReflectiveOperationException {
+    /*
+    private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
         noArgConsructor.setAccessible(true);
         return noArgConsructor.newInstance();
     }
+    */
 
     private static Class<?> parseClassName(String className) {
         try {
@@ -302,7 +305,9 @@ public class ZeSerializer implements ISerializer {
                     outer = outerField.get(object);
                     fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
                     rememberObject(outer);
-                } catch (ReflectiveOperationException e) {
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (NoSuchFieldException e) {
                     e.printStackTrace();
                 }
             }
@@ -492,12 +497,14 @@ public class ZeSerializer implements ISerializer {
         @Override
         public T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
             Collection instance = null;
+            /*
             try {
                 instance = (Collection) instantiateUsingNoArgCtor(clazz);
                 rememberer.accept(instance);
             } catch (ReflectiveOperationException e) {
                 throw new ZeSerializerException(e);
             }
+            */
             int len = sis.readInt();
             byte type = sis.readByte();
             if (type == 2) {
