@@ -54,17 +54,15 @@ public class ZeSerializer implements ISerializer {
     private Map<String, ?> parameters;
     private Map<Wrap, Integer> knownObjects = new HashMap<>();
     private List<Object> knownObjectList = new ArrayList<>();
+    private static final Objenesis objenesis = new ObjenesisStd();
 
     public ZeSerializer(Map<String, ?> parameters) {
         this.parameters = parameters;
-        objenesis = (parameters.get(USE_OBJENESIS) != null) ? new ObjenesisStd() : null;
     }
 
     public ZeSerializer() {
         this(new HashMap<>());
     }
-
-    private final Objenesis objenesis;
 
     @Override
     public byte[] serialize(Object object) {
