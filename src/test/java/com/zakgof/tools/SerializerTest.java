@@ -43,10 +43,10 @@ public class SerializerTest {
 
     @Test
     public void testArrays() {
-        assertRestoredEquals(new ArraysHolder(new int[] {0, 1, 2, 3, 4, 5}, new Object[] {"one", new Integer(1), new Long(2)}, new String[] {"one", "two"}));
-        assertRestoredEquals(new ArraysHolder(new int[] {0, 1, 2, 3, 4, 5}, new Object[] {null, new Integer(1), null}, null));
-        ArraysHolder recursive = new ArraysHolder(new int[] {0, 1, 2, 3, 4, 5}, null, new String[] {"one", "two"});
-        recursive.setObjects(new Object[] {null, recursive});
+        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { "one", new Integer(1), new Long(2) }, new String[] { "one", "two" }));
+        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { null, new Integer(1), null }, null));
+        ArraysHolder recursive = new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, null, new String[] { "one", "two" });
+        recursive.setObjects(new Object[] { null, recursive });
         assertRestoredEquals(recursive);
     }
 
@@ -62,16 +62,8 @@ public class SerializerTest {
 
     @Test
     public void testCollections() {
-        assertRestoredEquals(new CollectionHolder(
-            new HashSet<>(Arrays.asList("one", "two")),
-            new ArrayList<>(Arrays.asList(3, 4)),
-            new HashMap<>(ImmutableMap.of(1L, "ONE", 2L, "TWO"))
-        ));
-        assertRestoredEquals(new CollectionHolder(
-            ImmutableMap.of("ONE", 1L, "TWO", 2L).keySet(),
-            Arrays.asList(3, 4),
-            ImmutableMap.of(1L, "ONE", 2L, "TWO")
-        ));
+        assertRestoredEquals(new CollectionHolder(new HashSet<>(Arrays.asList("one", "two")), new ArrayList<>(Arrays.asList(3, 4)), new HashMap<>(ImmutableMap.of(1L, "ONE", 2L, "TWO"))));
+        assertRestoredEquals(new CollectionHolder(ImmutableMap.of("ONE", 1L, "TWO", 2L).keySet(), Arrays.asList(3, 4), ImmutableMap.of(1L, "ONE", 2L, "TWO")));
     }
 
     private <T> void assertRestoredEquals(T original) {
