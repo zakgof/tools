@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -199,22 +200,12 @@ public class ZeSerializer implements ISerializer {
     }
 
     private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
-        try {
-            if (outer == null) {
-                return instantiateUsingNoArgCtor(clazz);
-            } else {
-                Constructor<? extends Object> outerThisConsructor = clazz.getDeclaredConstructor(outer.getClass()); // TODO: different outer class
-                outerThisConsructor.setAccessible(true);
-                return outerThisConsructor.newInstance(outer);
-            }
-        } catch (NoSuchMethodException e) {
-            if (objenesis != null)
-                return objenesis.getInstantiatorOf(clazz).newInstance();
-            return clazz.newInstance();
-        }
+        if (objenesis != null)
+            return objenesis.getInstantiatorOf(clazz).newInstance();
+        return clazz.newInstance();
     }
 
-    private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws ReflectiveOperationException {
+    private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
         Constructor<? extends Object> noArgConsructor = clazz.getDeclaredConstructor();
         noArgConsructor.setAccessible(true);
         return noArgConsructor.newInstance();
@@ -310,7 +301,9 @@ public class ZeSerializer implements ISerializer {
                     outer = outerField.get(object);
                     fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
                     rememberObject(outer);
-                } catch (ReflectiveOperationException e) {
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                } catch (NoSuchFieldException e) {
                     e.printStackTrace();
                 }
             }
@@ -429,7 +422,7 @@ public class ZeSerializer implements ISerializer {
                 if (index == null) {
                     sos.write((byte) 2);
                     sos.write(clname);
-                    System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
+                    // System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
                 } else {
                     sos.write((byte) 4);
                     sos.write(index.byteValue());
@@ -476,7 +469,8 @@ public class ZeSerializer implements ISerializer {
             long classesNum = (int) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().count();
             if (classesNum < val.size() - 2) {
                 sos.write((byte) 1);
-                List<Class<?>> classes = (List) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().collect(Collectors.toList());
+                @SuppressWarnings("unchecked")
+                List<Class<?>> classes = (List)val.stream().filter(o -> o != null).map(Object::getClass).distinct().collect(Collectors.toList());
                 Map<Class<?>, Integer> map = IntStream.range(0, classes.size()).boxed().collect(Collectors.toMap(classes::get, i -> i));
                 sos.write(classes.size());
                 for (Class cl : classes) {
@@ -499,12 +493,14 @@ public class ZeSerializer implements ISerializer {
         @Override
         public T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
             Collection instance = null;
+
             try {
                 instance = (Collection) instantiateUsingNoArgCtor(clazz);
                 rememberer.accept(instance);
             } catch (ReflectiveOperationException e) {
                 throw new ZeSerializerException(e);
             }
+
             int len = sis.readInt();
             byte type = sis.readByte();
             if (type == 2) {
