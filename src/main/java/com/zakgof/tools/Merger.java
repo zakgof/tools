@@ -1,12 +1,10 @@
 package com.zakgof.tools;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.PriorityQueue;
-import java.util.function.Function;
-import java.util.function.Supplier;
+
+import com.annimon.stream.function.Function;
+import com.annimon.stream.function.Supplier;
 
 
 public class Merger<C extends Comparable<C>> {

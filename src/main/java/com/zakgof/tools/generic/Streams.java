@@ -1,9 +1,9 @@
 package com.zakgof.tools.generic;
 
 import java.util.Iterator;
-import java.util.function.Function;
 
 import com.annimon.stream.Stream;
+import com.annimon.stream.function.Function;
 import com.google.common.base.Predicate;
 
 public class Streams {

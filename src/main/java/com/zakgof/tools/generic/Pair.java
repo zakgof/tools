@@ -1,6 +1,6 @@
 package com.zakgof.tools.generic;
 
-import java.util.function.Function;
+import com.annimon.stream.function.Function;
 
 public class Pair<K, V> {
     private final K key;
