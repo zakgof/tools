@@ -1,23 +1,8 @@
 package com.zakgof.serialize;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.lang.reflect.*;
+import java.util.*;
 import java.util.Map.Entry;
 
 import org.objenesis.Objenesis;
@@ -29,21 +14,7 @@ import com.annimon.stream.Stream;
 import com.annimon.stream.function.Consumer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.zakgof.tools.io.ISimpleSerializer;
-import com.zakgof.tools.io.SimpleBooleanSerializer;
-import com.zakgof.tools.io.SimpleByteArraySerializer;
-import com.zakgof.tools.io.SimpleByteSerializer;
-import com.zakgof.tools.io.SimpleClassSerializer;
-import com.zakgof.tools.io.SimpleDateSerializer;
-import com.zakgof.tools.io.SimpleDoubleSerializer;
-import com.zakgof.tools.io.SimpleEnumSerializer;
-import com.zakgof.tools.io.SimpleFloatSerializer;
-import com.zakgof.tools.io.SimpleInputStream;
-import com.zakgof.tools.io.SimpleIntegerSerializer;
-import com.zakgof.tools.io.SimpleLongSerializer;
-import com.zakgof.tools.io.SimpleOutputStream;
-import com.zakgof.tools.io.SimpleShortSerializer;
-import com.zakgof.tools.io.SimpleStringSerializer;
+import com.zakgof.tools.io.*;
 
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
@@ -184,7 +155,7 @@ public class ZeSerializer implements ISerializer {
         classes.put("java.util.TreeSet", (byte) 7);
     }
 
-    private Object instantiate(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
+    private Object instantiate(Class<? extends Object> clazz, Object outer) throws SecurityException, InstantiationException, IllegalAccessException {
         Object instance = createObject(clazz, outer);
         if (!clazz.isPrimitive()) {
             rememberObject(instance);
@@ -199,7 +170,7 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
+    private Object createObject(Class<? extends Object> clazz, Object outer) throws SecurityException, InstantiationException, IllegalAccessException {
         if (objenesis != null)
             return objenesis.getInstantiatorOf(clazz).newInstance();
         return clazz.newInstance();
@@ -497,7 +468,7 @@ public class ZeSerializer implements ISerializer {
             try {
                 instance = (Collection) instantiateUsingNoArgCtor(clazz);
                 rememberer.accept(instance);
-            } catch (ReflectiveOperationException e) {
+            } catch (Exception e) {
                 throw new ZeSerializerException(e);
             }
 
