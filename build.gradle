@@ -1,0 +1,20 @@
+apply plugin: 'java'
+compileJava.options.encoding = 'UTF-8'
+
+group = 'com.zakgof'
+version = '0.3.2-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven {
+        url "http://nexus2-zakk.rhcloud.com/content/repositories/snapshots/"
+    }
+}
+
+dependencies {
+    compile 'com.zakgof:velvetdb:0.3.2-SNAPSHOT'
+    compile 'com.google.guava:guava:18.0'
+    compile 'org.objenesis:objenesis:2.2'
+    compileOnly 'org.projectlombok:lombok:1.16.18'
+    testCompile 'junit:junit:4.12'
+}
