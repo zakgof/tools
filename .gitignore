@@ -1,8 +1,7 @@
 /bin
-/proguard
-/gen
-/.settings
+/build
 /target
-/db
-*.iml
 /.gradle
+/.settings
+.classpath
+.project
