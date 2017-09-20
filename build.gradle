@@ -63,6 +63,9 @@ uploadArchives {
         artifactId 'tools'
         url 'https://github.com/zakgof/tools'
 
+        name 'zakgof tools'
+        description 'Utility classes used internally by various zakgof projects.'
+
         scm {
           connection 'scm:git:https://github.com/zakgof/tools.git'
           developerConnection 'scm:git:https://github.com/zakgof/tools.git'
