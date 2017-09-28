@@ -6,11 +6,14 @@ compileJava.options.encoding = 'UTF-8'
 
 group = 'com.github.zakgof'
 archivesBaseName = 'tools'
-version = '0.3.2-SNAPSHOT'
+version = '0.3.3-SNAPSHOT'
 
 repositories {
     mavenCentral()
 }
+
+def ossrhUsername = hasProperty('ossrhUsername') ? ossrhUsername : System.getenv('ossrhUsername')
+def ossrhPassword = hasProperty('ossrhPassword') ? ossrhPassword : System.getenv('ossrhPassword')
 
 dependencies {
     compile 'com.google.guava:guava:18.0'
