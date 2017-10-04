@@ -1,0 +1,96 @@
+apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
+compileJava.options.encoding = 'UTF-8'
+
+group = 'com.github.zakgof'
+archivesBaseName = 'tools'
+version = '0.3.3android-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+def ossrhUsername = hasProperty('ossrhUsername') ? ossrhUsername : System.getenv('ossrhUsername')
+def ossrhPassword = hasProperty('ossrhPassword') ? ossrhPassword : System.getenv('ossrhPassword')
+
+dependencies {
+    compile 'com.google.guava:guava:18.0'
+    compile 'org.objenesis:objenesis:2.2'
+    compile 'com.annimon:stream:1.1.9'
+    testCompile 'junit:junit:4.12'
+    testCompileOnly 'org.projectlombok:lombok:1.16.18'
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+tasks.withType(Javadoc) {
+    options.encoding = 'UTF-8'
+}
+
+task javadocJar(type: Jar) {
+    classifier = 'javadoc'
+    from javadoc
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives javadocJar, sourcesJar
+}
+
+signing {
+    sign configurations.archives
+}
+
+uploadArchives {
+  repositories {
+    mavenDeployer {
+      beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+      repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+        authentication(userName: ossrhUsername, password: ossrhPassword)
+      }
+
+      snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+        authentication(userName: ossrhUsername, password: ossrhPassword)
+      }
+
+      pom.project {
+        packaging 'jar'
+        artifactId 'tools'
+        url 'https://github.com/zakgof/tools'
+
+        name 'zakgof tools'
+        description 'Utility classes used internally by various zakgof projects.'
+
+        scm {
+          connection 'scm:git:https://github.com/zakgof/tools.git'
+          developerConnection 'scm:git:https://github.com/zakgof/tools.git'
+          url 'https://github.com/zakgof/tools/tree/master'
+        }
+
+        licenses {
+          license {
+            name 'The Apache License, Version 2.0'
+            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+
+        developers {
+          developer {
+            id 'zakgof'
+            name 'Oleksandr Zakusylo'
+            email 'zakgof@gmail.com'
+          }
+        }
+      }
+    }
+  }
+}

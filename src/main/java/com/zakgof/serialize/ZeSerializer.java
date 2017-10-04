@@ -1,8 +1,23 @@
 package com.zakgof.serialize;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.objenesis.Objenesis;
@@ -14,7 +29,22 @@ import com.annimon.stream.Stream;
 import com.annimon.stream.function.Consumer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.zakgof.tools.io.*;
+import com.zakgof.tools.io.ISimpleSerializer;
+import com.zakgof.tools.io.SimpleBooleanSerializer;
+import com.zakgof.tools.io.SimpleByteArraySerializer;
+import com.zakgof.tools.io.SimpleByteSerializer;
+import com.zakgof.tools.io.SimpleClassSerializer;
+import com.zakgof.tools.io.SimpleDateSerializer;
+import com.zakgof.tools.io.SimpleDoubleSerializer;
+import com.zakgof.tools.io.SimpleEnumSerializer;
+import com.zakgof.tools.io.SimpleFloatSerializer;
+import com.zakgof.tools.io.SimpleInputStream;
+import com.zakgof.tools.io.SimpleIntegerSerializer;
+import com.zakgof.tools.io.SimpleLongSerializer;
+import com.zakgof.tools.io.SimpleOutputStream;
+import com.zakgof.tools.io.SimpleShortSerializer;
+import com.zakgof.tools.io.SimpleStringSerializer;
+
 
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
@@ -155,7 +185,7 @@ public class ZeSerializer implements ISerializer {
         classes.put("java.util.TreeSet", (byte) 7);
     }
 
-    private Object instantiate(Class<? extends Object> clazz, Object outer) throws SecurityException, InstantiationException, IllegalAccessException {
+    private Object instantiate(Class<? extends Object> clazz, Object outer) throws Exception {
         Object instance = createObject(clazz, outer);
         if (!clazz.isPrimitive()) {
             rememberObject(instance);
@@ -170,7 +200,7 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private Object createObject(Class<? extends Object> clazz, Object outer) throws SecurityException, InstantiationException, IllegalAccessException {
+    private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
         if (objenesis != null)
             return objenesis.getInstantiatorOf(clazz).newInstance();
         return clazz.newInstance();
@@ -393,7 +423,7 @@ public class ZeSerializer implements ISerializer {
                 if (index == null) {
                     sos.write((byte) 2);
                     sos.write(clname);
-                    // System.err.println("DIFFERING class : " + clazz.getCanonicalName() + " -->> " + val.getClass().getCanonicalName());
+                    // System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
                 } else {
                     sos.write((byte) 4);
                     sos.write(index.byteValue());
@@ -437,11 +467,14 @@ public class ZeSerializer implements ISerializer {
             sos.write(val.size());
             // Optimization: same class
 
-            long classesNum = (int) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().count();
+            long classesNum = (int) Stream.of((List<?>)val).filter(o -> o != null).map(Object::getClass).distinct().count();
             if (classesNum < val.size() - 2) {
                 sos.write((byte) 1);
-                @SuppressWarnings("unchecked")
-                List<Class> classes = (List<Class>) Stream.of(val).filter(o -> o != null).map(Object::getClass).distinct().collect(Collectors.toList());
+                List<Class<?>> classes = Stream.of((List<?>)val)
+                    .filter(o -> o != null)
+                    .map(Object::getClass)
+                    .distinct()
+                    .collect(Collectors.toList());
                 Map<Class<?>, Integer> map = IntStream.range(0, classes.size()).boxed().collect(Collectors.toMap(classes::get, i -> i));
                 sos.write(classes.size());
                 for (Class cl : classes) {

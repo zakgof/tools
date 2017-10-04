@@ -3,7 +3,14 @@ package com.zakgof.tools;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.Ignore;
 import org.junit.Test;
@@ -11,7 +18,11 @@ import org.junit.Test;
 import com.google.common.collect.ImmutableMap;
 import com.zakgof.serialize.ZeSerializer;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 @Ignore
 public class SerializerTest {
@@ -51,7 +62,7 @@ public class SerializerTest {
         assertRestoredEquals(EnumSet.of(TestEnum.ONE, TestEnum.TWO));
     }
 
-    @Test    
+    @Test
     public void testCollections() {
         assertRestoredEquals(new CollectionHolder(new HashSet<>(Arrays.asList("one", "two")), new ArrayList<>(Arrays.asList(3, 4)), new HashMap<>(ImmutableMap.of(1L, "ONE", 2L, "TWO"))));
         assertRestoredEquals(new CollectionHolder(ImmutableMap.of("ONE", 1L, "TWO", 2L).keySet(), Arrays.asList(3, 4), ImmutableMap.of(1L, "ONE", 2L, "TWO")));
@@ -108,3 +119,4 @@ enum TestEnum {
     THREE(3);
     private final int v;
 }
+
