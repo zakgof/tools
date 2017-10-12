@@ -73,7 +73,7 @@ uploadArchives {
         scm {
           connection 'scm:git:https://github.com/zakgof/tools.git'
           developerConnection 'scm:git:https://github.com/zakgof/tools.git'
-          url 'https://github.com/zakgof/tools/tree/master'
+          url 'https://github.com/zakgof/tools/tree/android'
         }
 
         licenses {
