@@ -439,10 +439,10 @@ public class ZeSerializer implements ISerializer {
             sos.write(val.size());
             // Optimization: same class
 
-            long classesNum = (int) Stream.of((List<?>)val).filter(o -> o != null).map(Object::getClass).distinct().count();
+            long classesNum = (int) Stream.of((Collection<?>)val).filter(o -> o != null).map(Object::getClass).distinct().count();
             if (classesNum < val.size() - 2) {
                 sos.write((byte) 1);
-                List<Class<?>> classes = Stream.of((List<?>)val)
+                List<Class<?>> classes = Stream.of((Collection<?>)val)
                     .filter(o -> o != null)
                     .map(Object::getClass)
                     .distinct()
