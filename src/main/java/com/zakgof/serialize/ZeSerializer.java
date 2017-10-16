@@ -1,23 +1,8 @@
 package com.zakgof.serialize;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.lang.reflect.*;
+import java.util.*;
 import java.util.Map.Entry;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -29,21 +14,7 @@ import org.objenesis.ObjenesisStd;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.zakgof.tools.io.ISimpleSerializer;
-import com.zakgof.tools.io.SimpleBooleanSerializer;
-import com.zakgof.tools.io.SimpleByteArraySerializer;
-import com.zakgof.tools.io.SimpleByteSerializer;
-import com.zakgof.tools.io.SimpleClassSerializer;
-import com.zakgof.tools.io.SimpleDateSerializer;
-import com.zakgof.tools.io.SimpleDoubleSerializer;
-import com.zakgof.tools.io.SimpleEnumSerializer;
-import com.zakgof.tools.io.SimpleFloatSerializer;
-import com.zakgof.tools.io.SimpleInputStream;
-import com.zakgof.tools.io.SimpleIntegerSerializer;
-import com.zakgof.tools.io.SimpleLongSerializer;
-import com.zakgof.tools.io.SimpleOutputStream;
-import com.zakgof.tools.io.SimpleShortSerializer;
-import com.zakgof.tools.io.SimpleStringSerializer;
+import com.zakgof.tools.io.*;
 
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
@@ -255,10 +226,10 @@ public class ZeSerializer implements ISerializer {
 
         @Override
         public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-            Object[] arr = (Object[]) object;
-            sos.write(arr.length);
-            for (int i = 0; i < arr.length; i++) {
-                Object val = arr[i];
+            int length = Array.getLength(object);
+            sos.write(length);
+            for (int i = 0; i < length; i++) {
+                Object val = Array.get(object, i);
                 fieldSerializer.write(val, clazz.getComponentType(), sos);
             }
         }
@@ -269,12 +240,12 @@ public class ZeSerializer implements ISerializer {
             if (length < 0)
                 throw new RuntimeException("Invalid array length");
             Class<?> componentType = clazz.getComponentType();
-            Object[] instance = (Object[]) Array.newInstance(componentType, length);
+            Object instance = Array.newInstance(componentType, length);
             rememberObject(instance);
 
             for (int i = 0; i < length; i++) {
                 Object read = fieldSerializer.read(sis, componentType);
-                instance[i] = read;
+                Array.set(instance,  i, read);
             }
             return instance;
         }
@@ -293,20 +264,21 @@ public class ZeSerializer implements ISerializer {
 
             Class<? extends Object> actualClazz = object.getClass();
 
-            if (object.getClass().getEnclosingClass() != null && (object.getClass().getModifiers() & Modifier.STATIC) == 0) {
-                Object outer = null;
-                try {
-                    Field outerField = object.getClass().getDeclaredField("this$0");
-                    outerField.setAccessible(true);
-                    outer = outerField.get(object);
-                    fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
-                    rememberObject(outer);
-                } catch (IllegalAccessException e) {
-                    e.printStackTrace();
-                } catch (NoSuchFieldException e) {
-                    e.printStackTrace();
-                }
-            }
+//            if (object.getClass().getEnclosingClass() != null && (object.getClass().getModifiers() & Modifier.STATIC) == 0) {
+//                Object outer = null;
+//                try {
+//                    Field outerField = object.getClass().getDeclaredField("this$0");
+//                    outerField.setAccessible(true);
+//                    outer = outerField.get(object);
+//                    System.err.println("Write enclosing class " + clazz.getEnclosingClass() + " instance = " + outer);
+//                    fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
+//                    rememberObject(outer);
+//                } catch (IllegalAccessException e) {
+//                    throw new ZeSerializerException(e);
+//                } catch (NoSuchFieldException e) {
+//                    // No nothing
+//                }
+//            }
 
             if (!clazz.isPrimitive())
                 rememberObject(object);
@@ -365,13 +337,13 @@ public class ZeSerializer implements ISerializer {
                 }
             }
 
-            Object outer = null;
-            if (realClazz.getEnclosingClass() != null && (realClazz.getModifiers() & Modifier.STATIC) == 0) {
-                outer = read(sis, realClazz.getDeclaringClass());
-                rememberObject(outer);
-            }
+//            Object outer = null;
+//            if (realClazz.getEnclosingClass() != null && (realClazz.getModifiers() & Modifier.STATIC) == 0) {
+//                outer = read(sis, realClazz.getDeclaringClass());
+//                rememberObject(outer);
+//            }
 
-            Object object = readObject(sis, realClazz, outer);
+            Object object = readObject(sis, realClazz, null);
             if (!realClazz.isPrimitive()) {
                 rememberObject(object);
             }
