@@ -16,7 +16,6 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.zakgof.tools.io.*;
 
-
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
@@ -281,7 +280,7 @@ public class ZeSerializer implements ISerializer {
 //                }
 //            }
 
-            if (!actualClazz.isPrimitive())
+            if (!clazz.isPrimitive())
                 rememberObject(object);
 
             if (actualClazz.isEnum()) {
