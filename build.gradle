@@ -6,7 +6,7 @@ compileJava.options.encoding = 'UTF-8'
 
 group = 'com.github.zakgof'
 archivesBaseName = 'tools'
-version = '0.3.3-SNAPSHOT'
+version = '0.3.4-SNAPSHOT'
 
 repositories {
     mavenCentral()
@@ -17,7 +17,7 @@ def ossrhPassword = hasProperty('ossrhPassword') ? ossrhPassword : System.getenv
 
 dependencies {
     compile 'com.google.guava:guava:18.0'
-    compile 'org.objenesis:objenesis:2.2'
+    compile 'org.objenesis:objenesis:2.6'
     testCompile 'junit:junit:4.12'
     testCompileOnly 'org.projectlombok:lombok:1.16.18'
 }
