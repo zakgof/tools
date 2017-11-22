@@ -281,11 +281,11 @@ public class ZeSerializer implements ISerializer {
 //                }
 //            }
 
-            if (!clazz.isPrimitive())
+            if (!actualClazz.isPrimitive())
                 rememberObject(object);
 
-            if (clazz.isEnum()) {
-                new SimpleEnumSerializer(clazz).write(sos, (Enum) object);
+            if (actualClazz.isEnum()) {
+                new SimpleEnumSerializer(actualClazz).write(sos, (Enum) object);
                 return;
             }
 
