@@ -16,6 +16,24 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.zakgof.tools.io.*;
 
+import src.main.java.com.zakgof.serialize.ISerializer;
+import src.main.java.com.zakgof.serialize.ZeSerializerException;
+import src.main.java.com.zakgof.tools.io.ISimpleSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleBooleanSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleByteArraySerializer;
+import src.main.java.com.zakgof.tools.io.SimpleByteSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleClassSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleDateSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleDoubleSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleEnumSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleFloatSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleInputStream;
+import src.main.java.com.zakgof.tools.io.SimpleIntegerSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleLongSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleOutputStream;
+import src.main.java.com.zakgof.tools.io.SimpleShortSerializer;
+import src.main.java.com.zakgof.tools.io.SimpleStringSerializer;
+
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
@@ -280,7 +298,7 @@ public class ZeSerializer implements ISerializer {
 //                }
 //            }
 
-            if (!actualClazz.isPrimitive())
+            if (!clazz.isPrimitive())
                 rememberObject(object);
 
             if (actualClazz.isEnum()) {
