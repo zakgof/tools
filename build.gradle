@@ -5,8 +5,8 @@ apply plugin: 'signing'
 compileJava.options.encoding = 'UTF-8'
 
 group = 'com.github.zakgof'
-archivesBaseName = 'tools'
-version = '0.3.4.android-SNAPSHOT'
+archivesBaseName = 'tools-android'
+version = '0.4.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
@@ -64,7 +64,7 @@ uploadArchives {
 
       pom.project {
         packaging 'jar'
-        artifactId 'tools'
+        artifactId 'tools-android'
         url 'https://github.com/zakgof/tools'
 
         name 'zakgof tools'

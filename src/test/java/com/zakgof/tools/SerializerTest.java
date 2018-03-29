@@ -3,14 +3,25 @@ package com.zakgof.tools;
 import static org.junit.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableMap;
 import com.zakgof.serialize.ZeSerializer;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 public class SerializerTest {
 
@@ -54,12 +65,12 @@ public class SerializerTest {
         assertRestoredEquals(new CollectionHolder(new HashSet<>(Arrays.asList("one", "two")), new ArrayList<>(Arrays.asList(3, 4)), new HashMap<>(ImmutableMap.of(1L, "ONE", 2L, "TWO"))));
         // assertRestoredEquals(new CollectionHolder(ImmutableMap.of("ONE", 1L, "TWO", 2L).keySet(), Arrays.asList(3, 4), ImmutableMap.of(1L, "ONE", 2L, "TWO")));
     }
-    
+
     @Test
     public void testInners() {
         InnerHolder ih1 = new InnerHolder(5, "one", 10L);
         assertRestoredEquals(ih1);
-        
+
         InnerHolder ih2 = new InnerHolder(37, ih1.getInner());
         assertRestoredEquals(ih2);
         assertRestoredEquals(ih1.getInner());
@@ -72,7 +83,7 @@ public class SerializerTest {
         @SuppressWarnings("unchecked")
         Class<T> clazz = (Class<T>) original.getClass();
         ZeSerializer ze = new ZeSerializer();
-        byte[] bytes = ze.serialize(original);
+        byte[] bytes = ze.serialize(original, clazz);
         T restored = ze.deserialize(new ByteArrayInputStream(bytes), clazz);
         assertEquals(original, restored);
     }
@@ -91,7 +102,7 @@ class SimplePolymorph {
     final int integer;
     @Setter
     Object obj;
-    
+
     @Override
     public boolean equals(Object obj) {
         SimplePolymorph that = (SimplePolymorph)obj;

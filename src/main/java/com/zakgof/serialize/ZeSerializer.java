@@ -1,9 +1,26 @@
 package com.zakgof.serialize;
 
-import java.io.*;
-import java.lang.reflect.*;
-import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
@@ -12,35 +29,40 @@ import com.annimon.stream.Collectors;
 import com.annimon.stream.IntStream;
 import com.annimon.stream.Stream;
 import com.annimon.stream.function.Consumer;
+import com.annimon.stream.function.Supplier;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
-import com.zakgof.tools.io.*;
+import com.zakgof.tools.io.ISimpleSerializer;
+import com.zakgof.tools.io.SimpleBooleanSerializer;
+import com.zakgof.tools.io.SimpleByteArraySerializer;
+import com.zakgof.tools.io.SimpleByteSerializer;
+import com.zakgof.tools.io.SimpleClassSerializer;
+import com.zakgof.tools.io.SimpleDateSerializer;
+import com.zakgof.tools.io.SimpleDoubleSerializer;
+import com.zakgof.tools.io.SimpleEnumSerializer;
+import com.zakgof.tools.io.SimpleFloatSerializer;
+import com.zakgof.tools.io.SimpleInputStream;
+import com.zakgof.tools.io.SimpleIntegerSerializer;
+import com.zakgof.tools.io.SimpleLongSerializer;
+import com.zakgof.tools.io.SimpleOutputStream;
+import com.zakgof.tools.io.SimpleShortSerializer;
+import com.zakgof.tools.io.SimpleStringSerializer;
 
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
 
-    // public static final String COMPATIBLE_POJOS = "compatible.pojos";
-    public static final String FORCED_HEADER = "forced.header";
-    public static final String USE_OBJENESIS = "use.objenesis";
-    private Map<String, ?> parameters;
     private Map<Wrap, Integer> knownObjects = new HashMap<>();
     private List<Object> knownObjectList = new ArrayList<>();
+    private IUpgrader upgrader;
     private static final Objenesis objenesis = new ObjenesisStd();
-
-    public ZeSerializer(Map<String, ?> parameters) {
-        this.parameters = parameters;
-    }
-
-    public ZeSerializer() {
-        this(new HashMap<>());
-    }
+    private boolean upgradeHappened;
 
     @Override
-    public byte[] serialize(Object object) {
+    public <T> byte[] serialize(T object, Class<T> clazz) {
         // long start = System.currentTimeMillis();
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream(256);
-            serialize(object, baos);
+            serialize(object, baos, clazz);
             return baos.toByteArray();
         } catch (IOException e) {
             throw new ZeSerializerException(e);
@@ -52,11 +74,10 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    public void serialize(Object object, OutputStream os) throws IOException {
+    public <T> void serialize(T object, OutputStream os, Class<T> clazz) throws IOException {
         try {
             SimpleOutputStream sos = new SimpleOutputStream(os);
-            boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-            fieldSerializer.write(object, object.getClass(), sos, hoHeader);
+            fieldSerializer.write(object, clazz, sos);
         } finally {
             knownObjectList.clear();
             knownObjects.clear();
@@ -68,9 +89,9 @@ public class ZeSerializer implements ISerializer {
     public <T> T deserialize(InputStream is, Class<T> clazz) {
         // long start = System.currentTimeMillis();
         try {
+            upgradeHappened = false;
             SimpleInputStream sis = new SimpleInputStream(is);
-            boolean hoHeader = parameters.containsKey(FORCED_HEADER) ? false : true;
-            return (T) fieldSerializer.read(sis, clazz, hoHeader);
+            return (T) fieldSerializer.read(sis, clazz);
         } catch (IOException e) {
             throw new RuntimeException(e);
         } finally {
@@ -80,6 +101,14 @@ public class ZeSerializer implements ISerializer {
             knownObjectList.clear();
             knownObjects.clear();
         }
+    }
+
+    public void setUpgrader(IUpgrader upgrader) {
+        this.upgrader = upgrader;
+    }
+
+    public boolean wasUpgraded() {
+        return upgradeHappened;
     }
 
     public static List<Field> getAllFields(Class<?> type) {
@@ -101,6 +130,19 @@ public class ZeSerializer implements ISerializer {
         return fields;
     }
 
+    private Field findSerializableField(Class<? extends Object> clazz, String name, Class<?> fieldType) {
+        try {
+            Field field = clazz.getDeclaredField(name);
+            if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) == 0 && fieldType.equals(field.getType()))
+                return field;
+        } catch (NoSuchFieldException e) {
+            Class<?> parent = clazz.getSuperclass();
+            if (parent != null)
+                return findSerializableField(parent, name, fieldType);
+        }
+        return null;
+    }
+
     private interface IFieldSerializer {
         void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException;
 
@@ -114,7 +156,7 @@ public class ZeSerializer implements ISerializer {
     }
 
     private final FieldSerializer fieldSerializer = new FieldSerializer();
-    private final IFieldSerializer arraySerializer = new ArraySerializer();
+    private final ArraySerializer arraySerializer = new ArraySerializer();
     private final PojoSerializer pojoSerializer = new PojoSerializer();
 
     private final static Map<Class<?>, ISimpleSerializer<?>> serializers = new HashMap<>();
@@ -142,7 +184,8 @@ public class ZeSerializer implements ISerializer {
         serializers.put(byte[].class, SimpleByteArraySerializer.INSTANCE);
         serializers.put(Class.class, SimpleClassSerializer.INSTANCE);
 
-        compositeSerializers.put(HashMap.class, new HashMapSerializer());
+        compositeSerializers.put(HashMap.class, new MapSerializer<>(HashMap::new));
+        compositeSerializers.put(LinkedHashMap.class, new MapSerializer<>(LinkedHashMap::new));
         compositeSerializers.put(ArrayList.class, new CollectionSerializer<ArrayList<?>>());
         compositeSerializers.put(HashSet.class, new CollectionSerializer<HashSet<?>>());
 
@@ -155,8 +198,8 @@ public class ZeSerializer implements ISerializer {
         classes.put("java.util.TreeSet", (byte) 7);
     }
 
-    private Object instantiate(Class<? extends Object> clazz, Object outer) throws Exception {
-        Object instance = createObject(clazz, outer);
+    private Object instantiate(Class<? extends Object> clazz) throws Exception {
+        Object instance = createObject(clazz);
         if (!clazz.isPrimitive()) {
             rememberObject(instance);
         }
@@ -170,7 +213,7 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private Object createObject(Class<? extends Object> clazz, Object outer) throws ReflectiveOperationException, SecurityException {
+    private Object createObject(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
         if (objenesis != null)
             return objenesis.getInstantiatorOf(clazz).newInstance();
         return clazz.newInstance();
@@ -201,30 +244,51 @@ public class ZeSerializer implements ISerializer {
                     }
                 }
             } catch (IllegalAccessException e) {
-                throw new RuntimeException(e);
+                throw new ZeSerializerException(e);
             }
         }
 
-        public Object read(SimpleInputStream sis, Class<? extends Object> clazz, Object outer) throws IOException {
+        public Object read(SimpleInputStream sis, Class<? extends Object> clazz, byte classVersion) throws IOException {
             try {
-                Object object = instantiate(clazz, outer);
-                for (Field field : getAllFields(clazz)) {
-                    if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
-                        field.setAccessible(true);
-                        Object value = fieldSerializer.read(sis, field.getType());
-                        field.set(object, value);
+                Object object = instantiate(clazz);
+
+                if (upgrader != null) {
+                    if (upgrader.getCurrentVersionOf(clazz) != classVersion) {
+                        ClassStructure cs = upgrader.getStructureFor(clazz, classVersion);
+                        if (cs == null) {
+                            throw new ZeSerializerException("Upgrader cannot provide " + clazz.getName() + " ver." + classVersion);
+                        }
+                        Map<String, Class<?>> fields = cs.getFields();
+                        for (Entry<String, Class<?>> entry : fields.entrySet()) {
+                            String name = entry.getKey();
+                            Class<?> type = entry.getValue();
+                            Object fieldValue = fieldSerializer.read(sis, type);
+                            // attempt to match a field:
+                            Field field = findSerializableField(clazz, name, type);
+                            if (field != null) {
+                                field.setAccessible(true);
+                                field.set(object, fieldValue);
+                            }
+                        }
+                        upgradeHappened = true;
+                        return object;
                     }
+                }
+
+                for (Field field : getAllFields(clazz)) {
+                    field.setAccessible(true);
+                    Object value = fieldSerializer.read(sis, field.getType());
+                    field.set(object, value);
                 }
                 return object;
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                throw new ZeSerializerException(e);
             }
         }
     }
 
-    private class ArraySerializer implements IFieldSerializer {
+    private class ArraySerializer {
 
-        @Override
         public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
             int length = Array.getLength(object);
             sos.write(length);
@@ -234,7 +298,6 @@ public class ZeSerializer implements ISerializer {
             }
         }
 
-        @Override
         public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
             int length = sis.readInt();
             if (length < 0)
@@ -254,13 +317,14 @@ public class ZeSerializer implements ISerializer {
 
     private class FieldSerializer implements IFieldSerializer {
 
+        @Override
         @SuppressWarnings("unchecked")
-        public void write(Object object, Class<?> clazz, SimpleOutputStream sos, boolean noHeader) throws IOException {
-            if (!noHeader) {
-                if (!clazz.isPrimitive())
-                    if (!writeHeader(object, clazz, sos))
-                        return;
-            }
+        public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
+
+            if (!clazz.isPrimitive())
+                if (!writeHeader(object, clazz, sos))
+                    return;
+
 
             Class<? extends Object> actualClazz = object.getClass();
 
@@ -303,47 +367,44 @@ public class ZeSerializer implements ISerializer {
         }
 
         @Override
-        public void write(Object object, Class<?> clazz, SimpleOutputStream sos) throws IOException {
-            write(object, clazz, sos, false);
-        }
-
-        public Object read(SimpleInputStream sis, Class<?> clazz, boolean noHeader) throws IOException {
+        public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
             Class<?> realClazz = clazz;
-            if (!noHeader) {
-                if (!clazz.isPrimitive()) {
-                    // READ HEADER
-                    byte hdr = sis.readByte();
-                    if (hdr == 0)
-                        return null;
-                    else if (hdr == 3) {
-                        int objid = sis.readInt();
-                        Object val = knownObjectList.get(objid);
-                        return val;
-                    } else if (hdr == 1) {
-                        // Nothing, realClazz = clazz
-                    } else if (hdr == 4) {
-                        byte index = sis.readByte();
-                        String className = classes.inverse().get(index);
-                        if (className == null)
-                            throw new ZeSerializerException("Unknown class id: " + index);
-                        realClazz = parseClassName(className);
-                    } else if (hdr == 2) {
-                        String className = sis.readString();
-                        realClazz = parseClassName(className);
-                    } else {
-                        throw new ZeSerializerException("Parsing error: invalid header value: " + hdr
-                                                        + " when parsing class " + clazz.getName());
-                    }
+            byte classVersion = 0;
+
+            if (!clazz.isPrimitive()) {
+                // READ HEADER
+                byte hdr = sis.readByte();
+                if (hdr == 0)
+                    return null;
+                else if (hdr == 3) {
+                    int objid = sis.readInt();
+                    Object val = knownObjectList.get(objid);
+                    return val;
+                } else if (hdr == 1) {
+                    // Nothing, realClazz = clazz
+                } else if (hdr == 5) {
+                    // realClazz = clazz
+                    classVersion = sis.readByte();
+                } else if (hdr == 4) {
+                    byte index = sis.readByte();
+                    String className = classes.inverse().get(index);
+                    if (className == null)
+                        throw new ZeSerializerException("Unknown class id: " + index);
+                    realClazz = parseClassName(className);
+                } else if (hdr == 2) {
+                    String className = sis.readString();
+                    realClazz = parseClassName(className);
+                } else if (hdr == 6) {
+                    String className = sis.readString();
+                    realClazz = parseClassName(className);
+                    classVersion = sis.readByte();
+                } else {
+                    throw new ZeSerializerException("Parsing error: invalid header value: " + hdr
+                                                    + " when parsing class " + clazz.getName());
                 }
             }
 
-//            Object outer = null;
-//            if (realClazz.getEnclosingClass() != null && (realClazz.getModifiers() & Modifier.STATIC) == 0) {
-//                outer = read(sis, realClazz.getDeclaringClass());
-//                rememberObject(outer);
-//            }
-
-            Object object = readObject(sis, realClazz, null);
+            Object object = readObject(sis, realClazz, classVersion);
             if (!realClazz.isPrimitive()) {
                 rememberObject(object);
             }
@@ -351,9 +412,9 @@ public class ZeSerializer implements ISerializer {
         }
 
         @SuppressWarnings("unchecked")
-        private Object readObject(SimpleInputStream sis, Class<?> realClazz, Object outer) throws IOException {
+        private Object readObject(SimpleInputStream sis, Class<?> realClazz, byte classVersion) throws IOException {
             if (realClazz.isEnum()) {
-                return new SimpleEnumSerializer(realClazz).read(sis);
+                return new SimpleEnumSerializer(realClazz).read(sis); // TODO: versioning !
             }
             ICompositeSerializer<Object> compositeSerializer = (ICompositeSerializer<Object>) compositeSerializers.get(realClazz);
             if (compositeSerializer != null)
@@ -364,16 +425,9 @@ public class ZeSerializer implements ISerializer {
             else if (realClazz.getComponentType() != null)
                 return arraySerializer.read(sis, realClazz);
             else
-                return pojoSerializer.read(sis, realClazz, outer);
+                return pojoSerializer.read(sis, realClazz, classVersion);
         }
 
-        @Override
-        public Object read(SimpleInputStream sis, Class<?> clazz) throws IOException {
-            Object object = read(sis, clazz, false);
-            return object;
-        }
-
-        // TODO: check and fix circular references
         private boolean writeHeader(Object val, Class<?> clazz, SimpleOutputStream sos) throws IOException {
             if (val == null) {
                 sos.write((byte) 0);
@@ -386,15 +440,21 @@ public class ZeSerializer implements ISerializer {
                 sos.write(objId.intValue());
                 return false;
             }
+            byte version = upgrader == null ? 0 : upgrader.getCurrentVersionOf(val.getClass());
             if (val.getClass() == clazz) {
-                sos.write((byte) 1);
+                sos.write(version == 0 ? (byte) 1 : (byte) 5);
+                if (version != 0) {
+                    sos.write(version);
+                }
             } else {
                 String clname = val.getClass().getName();
                 Byte index = classes.get(clname);
                 if (index == null) {
-                    sos.write((byte) 2);
+                    sos.write(version == 0 ? (byte) 2 : (byte) 6);
                     sos.write(clname);
-                    // System.err.println("DIFFERING class : " + clazz.getCanonicalName() + "  -->>  " + val.getClass().getCanonicalName());
+                    if (version != 0) {
+                        sos.write(version);
+                    }
                 } else {
                     sos.write((byte) 4);
                     sos.write(index.byteValue());
@@ -405,21 +465,29 @@ public class ZeSerializer implements ISerializer {
 
     }
 
-    private static class HashMapSerializer implements ICompositeSerializer<HashMap<?, ?>> {
+    private static class MapSerializer<T extends Map> implements ICompositeSerializer<T> {
 
+        private Supplier<T> factory;
+
+        MapSerializer(Supplier<T> factory) {
+            this.factory = factory;
+        }
+
+        @SuppressWarnings("unchecked")
         @Override
-        public void write(HashMap<?, ?> object, Class<? extends HashMap<?, ?>> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
+        public void write(T object, Class<? extends T> clazz, SimpleOutputStream sos, IFieldSerializer fieldSerializer) throws IOException {
             sos.write(object.size());
-            for (Entry<?, ?> e : object.entrySet()) {
-                fieldSerializer.write(e.getKey(), Object.class, sos);
+            Set<Map.Entry> entrySet = object.entrySet();
+            for (Entry e : entrySet) {
+                fieldSerializer.write(e.getKey(), Object.class, sos); // TODO: this is very poor since we know the type
                 fieldSerializer.write(e.getValue(), Object.class, sos);
             }
         }
 
         @SuppressWarnings("unchecked")
         @Override
-        public HashMap<?, ?> read(SimpleInputStream sis, Class<? extends HashMap<?, ?>> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
-            HashMap hm = new HashMap();
+        public T read(SimpleInputStream sis, Class<? extends T> clazz, IFieldSerializer fieldSerializer, Consumer<Object> rememberer) throws IOException {
+            T hm = factory.get();
             rememberer.accept(hm);
             int len = sis.readInt();
             for (int i = 0; i < len; i++) {
