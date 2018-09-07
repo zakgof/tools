@@ -198,8 +198,8 @@ public class ZeSerializer implements ISerializer {
         classes.put("java.util.TreeSet", (byte) 7);
     }
 
-    private Object instantiate(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
-        Object instance = createObject(clazz);
+    private <T> T instantiate(Class<T> clazz) throws ReflectiveOperationException, SecurityException {
+        T instance = createObject(clazz);
         if (!clazz.isPrimitive()) {
             rememberObject(instance);
         }
@@ -213,7 +213,7 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
-    private Object createObject(Class<? extends Object> clazz) throws ReflectiveOperationException, SecurityException {
+    private <T> T createObject(Class<T> clazz) throws ReflectiveOperationException, SecurityException {
         if (objenesis != null)
             return objenesis.getInstantiatorOf(clazz).newInstance();
         return clazz.newInstance();
@@ -248,9 +248,9 @@ public class ZeSerializer implements ISerializer {
             }
         }
 
-        public Object read(SimpleInputStream sis, Class<? extends Object> clazz, byte classVersion) throws IOException {
+        public <T> T read(SimpleInputStream sis, Class<T> clazz, byte classVersion) throws IOException {
             try {
-                Object object = instantiate(clazz);
+                T object = instantiate(clazz);
 
                 if (upgrader != null) {
                     if (upgrader.getCurrentVersionOf(clazz) != classVersion) {
@@ -259,10 +259,12 @@ public class ZeSerializer implements ISerializer {
                             throw new ZeSerializerException("Upgrader cannot provide " + clazz.getName() + " ver." + classVersion);
                         }
                         Map<String, Class<?>> fields = cs.getFields();
+                        Map<String, Object> fieldValues = new HashMap<>();
                         for (Entry<String, Class<?>> entry : fields.entrySet()) {
                             String name = entry.getKey();
                             Class<?> type = entry.getValue();
                             Object fieldValue = fieldSerializer.read(sis, type);
+                            fieldValues.put(name, fieldValue);
                             // attempt to match a field:
                             Field field = findSerializableField(clazz, name, type);
                             if (field != null) {
@@ -271,6 +273,10 @@ public class ZeSerializer implements ISerializer {
                             }
                         }
                         upgradeHappened = true;
+                        IFixer<T> fixer = upgrader.getFixerFor(clazz);
+                        if (fixer != null) {
+                            return fixer.fix(object, fieldValues);
+                        }
                         return object;
                     }
                 }
@@ -327,22 +333,6 @@ public class ZeSerializer implements ISerializer {
 
 
             Class<? extends Object> actualClazz = object.getClass();
-
-//            if (object.getClass().getEnclosingClass() != null && (object.getClass().getModifiers() & Modifier.STATIC) == 0) {
-//                Object outer = null;
-//                try {
-//                    Field outerField = object.getClass().getDeclaredField("this$0");
-//                    outerField.setAccessible(true);
-//                    outer = outerField.get(object);
-//                    System.err.println("Write enclosing class " + clazz.getEnclosingClass() + " instance = " + outer);
-//                    fieldSerializer.write(outer, clazz.getEnclosingClass(), sos);
-//                    rememberObject(outer);
-//                } catch (IllegalAccessException e) {
-//                    throw new ZeSerializerException(e);
-//                } catch (NoSuchFieldException e) {
-//                    // No nothing
-//                }
-//            }
 
             if (!clazz.isPrimitive())
                 rememberObject(object);
