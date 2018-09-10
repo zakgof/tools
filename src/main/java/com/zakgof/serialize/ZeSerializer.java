@@ -39,7 +39,6 @@ import com.zakgof.tools.io.SimpleByteSerializer;
 import com.zakgof.tools.io.SimpleClassSerializer;
 import com.zakgof.tools.io.SimpleDateSerializer;
 import com.zakgof.tools.io.SimpleDoubleSerializer;
-import com.zakgof.tools.io.SimpleEnumSerializer;
 import com.zakgof.tools.io.SimpleFloatSerializer;
 import com.zakgof.tools.io.SimpleInputStream;
 import com.zakgof.tools.io.SimpleIntegerSerializer;
@@ -338,7 +337,7 @@ public class ZeSerializer implements ISerializer {
                 rememberObject(object);
 
             if (actualClazz.isEnum()) {
-                new SimpleEnumSerializer(actualClazz).write(sos, (Enum) object);
+                new EnumSerializer(actualClazz).write(sos, (Enum) object);
                 return;
             }
 
@@ -404,7 +403,7 @@ public class ZeSerializer implements ISerializer {
         @SuppressWarnings("unchecked")
         private Object readObject(SimpleInputStream sis, Class<?> realClazz, byte classVersion) throws IOException {
             if (realClazz.isEnum()) {
-                return new SimpleEnumSerializer(realClazz).read(sis); // TODO: versioning !
+                return new EnumSerializer(realClazz).read(sis, classVersion);
             }
             ICompositeSerializer<Object> compositeSerializer = (ICompositeSerializer<Object>) compositeSerializers.get(realClazz);
             if (compositeSerializer != null)
@@ -573,6 +572,34 @@ public class ZeSerializer implements ISerializer {
         @Override
         public boolean equals(Object that) {
             return this.object == ((Wrap) that).object;
+        }
+
+    }
+
+    private class EnumSerializer<T extends Enum<T>> {
+
+        private Class<T> clazz;
+
+        public EnumSerializer(Class<T> clazz) {
+            this.clazz = clazz;
+        }
+
+        public void write(SimpleOutputStream out, T val) throws IOException {
+            out.write(val.ordinal());
+        }
+
+        public T read(SimpleInputStream in, byte classVersion) throws IOException {
+            if (upgrader != null) {
+                if (upgrader.getCurrentVersionOf(clazz) != classVersion) {
+                    ClassStructure cs = upgrader.getStructureFor(clazz, classVersion);
+                    if (cs == null) {
+                        throw new ZeSerializerException("Upgrader cannot provide " + clazz.getName() + " ver." + classVersion);
+                    }
+                    String name = cs.getEnumLabel(in.readInt());
+                    return Enum.valueOf(clazz, name);
+                }
+            }
+            return clazz.getEnumConstants()[in.readInt()];
         }
 
     }
