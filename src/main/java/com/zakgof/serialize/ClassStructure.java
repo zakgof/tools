@@ -18,14 +18,14 @@ public class ClassStructure {
 
     private ClassStructure(Class<?> clazz) {
         if (clazz.isEnum()) {
-            try {
-                this.enumLabels = Arrays.stream((Enum[]) clazz.getMethod("values").invoke(null)).map(Enum::name).collect(Collectors.toList());
-            } catch (ReflectiveOperationException e) {
-                throw new ZeSerializerException(e);
-            }
+            this.enumLabels = Arrays.stream(clazz.getEnumConstants())
+                .map(Enum.class::cast)
+                .map(Enum::name)
+                .collect(Collectors.toList());
         } else {
             List<Field> fields = ZeSerializer.getAllFields(clazz);
-            this.fieldMap = fields.stream().collect(Collectors.toMap(Field::getName, Field::getType, (u, v) -> u, LinkedHashMap::new));
+            this.fieldMap = fields.stream()
+                .collect(Collectors.toMap(Field::getName, Field::getType, (u, v) -> u, LinkedHashMap::new));
         }
     }
 
