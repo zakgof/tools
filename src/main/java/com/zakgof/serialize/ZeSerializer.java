@@ -102,6 +102,7 @@ public class ZeSerializer implements ISerializer {
         }
     }
 
+    @Override
     public void setUpgrader(IUpgrader upgrader) {
         this.upgrader = upgrader;
     }
@@ -129,7 +130,7 @@ public class ZeSerializer implements ISerializer {
         return fields;
     }
 
-    private Field findSerializableField(Class<? extends Object> clazz, String name, Class<?> fieldType) {
+    public static Field findSerializableField(Class<? extends Object> clazz, String name, Class<?> fieldType) {
         try {
             Field field = clazz.getDeclaredField(name);
             if ((field.getModifiers() & (Modifier.STATIC | Modifier.TRANSIENT)) == 0 && fieldType.equals(field.getType()))
@@ -602,5 +603,10 @@ public class ZeSerializer implements ISerializer {
             return clazz.getEnumConstants()[in.readInt()];
         }
 
+    }
+
+    @Override
+    public List<Field> getFields(Class<?> clazz) {
+        return ZeSerializer.getAllFields(clazz);
     }
 }

@@ -12,18 +12,18 @@ public class ClassStructure {
     private Map<String, Class<?>> fieldMap;
     private List<String> enumLabels;
 
-    public static ClassStructure of(Class<?> clazz) {
-        return new ClassStructure(clazz);
+    public static ClassStructure of(Class<?> clazz, ISerializer serializer) {
+        return new ClassStructure(clazz, serializer);
     }
 
-    private ClassStructure(Class<?> clazz) {
+    private ClassStructure(Class<?> clazz, ISerializer serializer) {
         if (clazz.isEnum()) {
             this.enumLabels = Arrays.stream(clazz.getEnumConstants())
                 .map(Enum.class::cast)
                 .map(Enum::name)
                 .collect(Collectors.toList());
         } else {
-            List<Field> fields = ZeSerializer.getAllFields(clazz);
+            List<Field> fields = serializer.getFields(clazz);
             this.fieldMap = fields.stream()
                 .collect(Collectors.toMap(Field::getName, Field::getType, (u, v) -> u, LinkedHashMap::new));
         }
