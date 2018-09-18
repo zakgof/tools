@@ -6,4 +6,6 @@ public interface IUpgrader {
 
     ClassStructure getStructureFor(Class<?> clazz, byte classVersion);
 
+    <T> IFixer<T> getFixerFor(Class<T> clazz);
+
 }
