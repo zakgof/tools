@@ -216,7 +216,7 @@ public class ZeSerializer implements ISerializer {
     private <T> T createObject(Class<T> clazz) throws ReflectiveOperationException, SecurityException {
         if (objenesis != null)
             return objenesis.getInstantiatorOf(clazz).newInstance();
-        return clazz.newInstance();
+        return clazz.newInstance(); // instantiateUsingNoArgCtor(clazz); // ??
     }
 
     private static Object instantiateUsingNoArgCtor(Class<?> clazz) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
