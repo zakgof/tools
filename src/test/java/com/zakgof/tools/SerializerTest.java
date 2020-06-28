@@ -2,6 +2,8 @@ package com.zakgof.tools;
 
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
+import com.zakgof.serialize.ZeSerializer;
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -11,17 +13,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.junit.Test;
-
-import com.google.common.collect.ImmutableMap;
-import com.zakgof.serialize.ZeSerializer;
-
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import org.junit.Test;
 
 public class SerializerTest {
 
@@ -34,7 +31,7 @@ public class SerializerTest {
     @Test
     public void testSimplePolymorph() {
         assertRestoredEquals(new SimplePolymorph(42, "String"));
-        assertRestoredEquals(new SimplePolymorph(42, new Long(123457L)));
+        assertRestoredEquals(new SimplePolymorph(42, Long.valueOf(123457L)));
         assertRestoredEquals(new SimplePolymorph(42, new SimplePolymorph(37, "Hello")));
         SimplePolymorph recursive = new SimplePolymorph(42, null);
         recursive.setObj(recursive);
@@ -43,8 +40,8 @@ public class SerializerTest {
 
     @Test
     public void testArrays() {
-        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { "one", new Integer(1), new Long(2) }, new String[] { "one", "two" }));
-        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { null, new Integer(1), null }, null));
+        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { "one", Integer.valueOf(1), Long.valueOf(2) }, new String[] { "one", "two" }));
+        assertRestoredEquals(new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, new Object[] { null, Integer.valueOf(1), null }, null));
         ArraysHolder recursive = new ArraysHolder(new int[] { 0, 1, 2, 3, 4, 5 }, null, new String[] { "one", "two" });
         recursive.setObjects(new Object[] { null, recursive });
         // assertRestoredEquals(recursive);

@@ -1,5 +1,21 @@
 package com.zakgof.serialize;
 
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import com.zakgof.tools.io.ISimpleSerializer;
+import com.zakgof.tools.io.SimpleBooleanSerializer;
+import com.zakgof.tools.io.SimpleByteArraySerializer;
+import com.zakgof.tools.io.SimpleByteSerializer;
+import com.zakgof.tools.io.SimpleClassSerializer;
+import com.zakgof.tools.io.SimpleDateSerializer;
+import com.zakgof.tools.io.SimpleDoubleSerializer;
+import com.zakgof.tools.io.SimpleFloatSerializer;
+import com.zakgof.tools.io.SimpleInputStream;
+import com.zakgof.tools.io.SimpleIntegerSerializer;
+import com.zakgof.tools.io.SimpleLongSerializer;
+import com.zakgof.tools.io.SimpleOutputStream;
+import com.zakgof.tools.io.SimpleShortSerializer;
+import com.zakgof.tools.io.SimpleStringSerializer;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,26 +42,8 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
 import org.objenesis.Objenesis;
 import org.objenesis.ObjenesisStd;
-
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-import com.zakgof.tools.io.ISimpleSerializer;
-import com.zakgof.tools.io.SimpleBooleanSerializer;
-import com.zakgof.tools.io.SimpleByteArraySerializer;
-import com.zakgof.tools.io.SimpleByteSerializer;
-import com.zakgof.tools.io.SimpleClassSerializer;
-import com.zakgof.tools.io.SimpleDateSerializer;
-import com.zakgof.tools.io.SimpleDoubleSerializer;
-import com.zakgof.tools.io.SimpleFloatSerializer;
-import com.zakgof.tools.io.SimpleInputStream;
-import com.zakgof.tools.io.SimpleIntegerSerializer;
-import com.zakgof.tools.io.SimpleLongSerializer;
-import com.zakgof.tools.io.SimpleOutputStream;
-import com.zakgof.tools.io.SimpleShortSerializer;
-import com.zakgof.tools.io.SimpleStringSerializer;
 
 @SuppressWarnings("rawtypes")
 public class ZeSerializer implements ISerializer {
